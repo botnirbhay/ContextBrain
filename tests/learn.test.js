@@ -16,12 +16,18 @@ test("learn generates AGENTS.md project rules from memories", () => {
   saveMemory({ type: "failed_attempt", title: "Avoid Redis pubsub", body: "Redis pub/sub caused missed local events.", next_time: "Avoid Redis pub/sub for local memory sync.", confidence: 0.8 }, root);
 
   const markdown = generateAgentsMarkdown({ root });
-  assert.match(markdown, /# Project Rules/);
+  assert.match(markdown, /# CodexMemory Project Instructions/);
   assert.match(markdown, /Use Zod validation/);
   assert.match(markdown, /Avoid Redis pub\/sub/);
 
   const filePath = writeAgentsFile({ root });
   assert.equal(fs.existsSync(filePath), true);
+});
+
+test("learn writes an explicit empty-memory state", () => {
+  const root = tempRepo();
+  const markdown = generateAgentsMarkdown({ root });
+  assert.match(markdown, /No Approved Memories Yet/);
 });
 
 test("learn prefers concrete memory body over generic next-time guidance", () => {

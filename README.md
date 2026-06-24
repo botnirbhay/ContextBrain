@@ -4,59 +4,43 @@ CodexMemory is a local memory and learning layer for Codex and other coding agen
 
 CodexMemory is not a chat-history logger. It keeps durable, human-reviewable memories that help an agent behave like it has worked in the repository before.
 
-## Core Principles
+## What A First-Time User Does
 
-- Local-first: all data lives in the repository under `.codexmemory/`.
-- No required API keys: core features work offline with plain Node.js and Git.
-- Human-editable: memories are Markdown or JSON files.
-- Review-first: new long-lived memories are proposed before approval.
-- Small context packs: Codex receives relevant knowledge, not a history dump.
-- Safe integration: setup does not silently replace the real `codex` command.
+Use this flow in the real project where Codex should have memory.
 
-## Install
+### 1. Install CodexMemory
 
-From the CodexMemory repository during development:
+From the CodexMemory repository:
 
 ```powershell
 npm install
-npm test
-node src\cli.js --help
+npm link
 ```
 
-Optionally link it locally so `codexmemory` and `codexm` are available as commands:
+Verify the commands are available:
 
 ```powershell
-npm link
 codexmemory --help
 codexm --help
 ```
 
-macOS/Linux is the same with forward slashes:
-
-```bash
-npm install
-npm test
-node src/cli.js --help
-npm link
-```
-
-## One-Time Setup In A Project
-
-In the project where you want Codex to use memory:
+If you do not want to use `npm link`, replace `codexmemory` in the examples with:
 
 ```powershell
+node C:\path\to\CodexMemory\src\cli.js
+```
+
+### 2. Set Up One Project
+
+Go to the project you want Codex to work on:
+
+```powershell
+cd C:\path\to\your-project
 codexmemory setup
 codexmemory doctor
 ```
 
-Without `npm link`, call the CLI by path:
-
-```powershell
-node C:\path\to\CodexMemory\src\cli.js setup
-node C:\path\to\CodexMemory\src\cli.js doctor
-```
-
-`setup` creates:
+`setup` creates local files in that project:
 
 ```text
 .codexmemory/
@@ -72,133 +56,191 @@ node C:\path\to\CodexMemory\src\cli.js doctor
   indexes/
 ```
 
-It also creates a root `AGENTS.md` Codex bridge when one does not already exist. If a human-authored `AGENTS.md` already exists, CodexMemory leaves it unchanged and writes the bridge snippet to `.codexmemory/AGENTS.bridge.md` instead.
+It also creates a root `AGENTS.md` bridge if one does not already exist. If your project already has a human-authored `AGENTS.md`, CodexMemory leaves it untouched and writes `.codexmemory/AGENTS.bridge.md` for you to merge manually.
 
-## How It Integrates With Codex
+### 3. Run A Safe Dry Run
 
-There are two integration paths.
+`<your task>` is a placeholder. Replace it with the actual thing you want Codex to do.
 
-### 1. Wrapper Integration
-
-Use the generated wrapper instead of calling Codex directly:
+PowerShell:
 
 ```powershell
-.codexmemory\bin\codexm.cmd "implement oauth login"
+.codexmemory\bin\codexm.cmd "<your task>" --dry-run
 ```
 
-macOS/Linux:
-
-```bash
-.codexmemory/bin/codexm "implement oauth login"
-```
-
-If `.codexmemory/bin` is on PATH, use:
+Example with a real task:
 
 ```powershell
-codexm "implement oauth login"
+.codexmemory\bin\codexm.cmd "inspect the authentication module and report likely cleanup tasks" --dry-run
 ```
 
-The wrapper runs the full workflow:
+Dry-run does not launch Codex. It only creates the prompt, context pack, session record, and reflection scaffold so you can verify the setup.
 
-1. Start a CodexMemory session.
-2. Retrieve relevant memories.
-3. Build a small context pack.
-4. Build the final Codex prompt.
-5. Launch the real Codex CLI with that enriched prompt.
-6. Capture git diff summary, changed files, command metadata, and session outcome.
-7. Reflect on the session.
-8. Write pending learnings for human review.
+### 4. Run Codex With Memory
 
-Equivalent explicit commands:
+After the dry run looks good and Codex CLI is installed:
 
 ```powershell
-codexmemory codex "implement oauth login"
-codexmemory run "implement oauth login"
+.codexmemory\bin\codexm.cmd "<your task>"
 ```
 
-### 2. AGENTS.md Bridge
-
-`setup` creates a root `AGENTS.md` bridge so Codex opened directly in the repo can see that the repository uses CodexMemory. It tells Codex to consult `.codexmemory/AGENTS.md` and use `codexmemory context "<task>"` when available.
-
-This helps, but it cannot fully automate the lifecycle by itself. If you run the real Codex command directly:
+If you add `.codexmemory\bin` to PATH, you can use the shorter command:
 
 ```powershell
-codex "implement oauth login"
+codexm "<your task>"
 ```
 
-CodexMemory does not automatically get a pre-run or post-run hook unless Codex itself provides one. That is why the wrapper command exists.
+The setup command prints the exact PATH commands for your shell.
 
-## Why Not Replace `codex` Automatically?
+### 5. Review Learnings
 
-CodexMemory does not install a fake `codex` command by default because shadowing a real CLI can be surprising and hard to debug. A direct `codex` shim must carefully avoid recursion, preserve the real Codex path, and uninstall cleanly.
-
-The safe default is:
+After a task, inspect pending learnings:
 
 ```powershell
-codexm "task"
+Get-ChildItem .codexmemory\reflections\pending
 ```
 
-This gives the same convenience without hiding the real `codex` binary.
-
-## Day-To-Day Usage
-
-Preview what Codex will receive:
+Review a pending file. Replace `<pending-file>` with the real file name from the previous command:
 
 ```powershell
-codexmemory prompt "implement oauth login"
+codexmemory review .codexmemory\reflections\pending\<pending-file>.json
 ```
 
-Preview the memory context only:
+Approve only the useful candidates:
 
 ```powershell
-codexmemory context "implement oauth login"
+codexmemory review .codexmemory\reflections\pending\<pending-file>.json --approve 1,3
 ```
 
-Run a dry-run workflow without launching Codex:
+Or approve all only when every candidate is good:
 
 ```powershell
-codexmemory codex "implement oauth login" --dry-run
+codexmemory review .codexmemory\reflections\pending\<pending-file>.json --approve-all
 ```
 
-Run the real workflow:
-
-```powershell
-codexm "implement oauth login"
-```
-
-Check state:
-
-```powershell
-codexmemory status
-```
-
-Review proposed learnings:
-
-```powershell
-codexmemory review .codexmemory\reflections\pending\reflection-id.json
-codexmemory review .codexmemory\reflections\pending\reflection-id.json --approve 1,3
-codexmemory review .codexmemory\reflections\pending\reflection-id.json --reject 2
-codexmemory review .codexmemory\reflections\pending\reflection-id.json --approve-all
-```
-
-Regenerate project instructions from approved memories:
+Regenerate distilled project rules:
 
 ```powershell
 codexmemory learn
 ```
 
-This writes:
+That updates:
 
 ```text
 .codexmemory/AGENTS.md
 ```
+
+## How Codex Integration Works
+
+CodexMemory integrates with Codex in two safe ways.
+
+### Wrapper Integration
+
+The wrapper is the main integration:
+
+```powershell
+.codexmemory\bin\codexm.cmd "<your task>"
+```
+
+or, after PATH setup:
+
+```powershell
+codexm "<your task>"
+```
+
+The wrapper does the full lifecycle:
+
+1. Starts a CodexMemory session.
+2. Retrieves relevant memories.
+3. Builds a small context pack.
+4. Builds the final Codex prompt.
+5. Launches the real Codex CLI with that enriched prompt.
+6. Captures changed files, git diff summary, command metadata, and outcome.
+7. Reflects on the session.
+8. Writes pending learnings for review.
+
+Equivalent explicit command:
+
+```powershell
+codexmemory codex "<your task>"
+```
+
+### AGENTS.md Bridge
+
+`setup` creates a root `AGENTS.md` bridge so Codex opened directly in the repo can see that the repository uses CodexMemory. It tells Codex to consult `.codexmemory/AGENTS.md` and use task-specific memory when available.
+
+This helps, but it cannot fully automate the lifecycle by itself. If you run the real Codex command directly:
+
+```powershell
+codex "<your task>"
+```
+
+CodexMemory does not automatically get a pre-run or post-run hook unless Codex itself provides one. That is why the wrapper command exists.
+
+## Why CodexMemory Does Not Replace `codex` By Default
+
+CodexMemory does not install a fake `codex` command by default because shadowing a real CLI can be surprising and hard to debug. A direct `codex` shim must avoid recursion, preserve the real Codex path, and uninstall cleanly.
+
+The safe production default is:
+
+```powershell
+codexm "<your task>"
+```
+
+This gives a short command without hiding the real `codex` binary.
+
+## Common Commands
+
+Preview the exact prompt CodexMemory would send to Codex:
+
+```powershell
+codexmemory prompt "<your task>"
+```
+
+Preview the memory context only:
+
+```powershell
+codexmemory context "<your task>"
+```
+
+Run the workflow without launching Codex:
+
+```powershell
+codexmemory codex "<your task>" --dry-run
+```
+
+Run the real workflow:
+
+```powershell
+codexm "<your task>"
+```
+
+Check current state:
+
+```powershell
+codexmemory status
+```
+
+Run diagnostics:
+
+```powershell
+codexmemory doctor
+```
+
+Remove generated setup files:
+
+```powershell
+codexmemory uninstall
+```
+
+`uninstall` removes only CodexMemory-generated wrappers and a CodexMemory-generated root `AGENTS.md`. It leaves memories, sessions, reflections, and human-authored files alone.
 
 ## Manual Memory Commands
 
 Save a memory manually:
 
 ```powershell
-codexmemory save --type decision --title "Use markdown records" --body "Store durable memories as markdown files with frontmatter." --rationale "Humans can review and edit records in normal Git workflows." --next-time "Prefer markdown records for v1 storage changes." --code src/storage.js --tag storage
+codexmemory save --type decision --title "Use markdown records" --body "Store durable memories as markdown files with frontmatter." --rationale "Humans can review and edit records in normal Git workflows." --next-time "Prefer markdown records for storage changes." --code src/storage.js --tag storage
 ```
 
 Search memories:
@@ -210,7 +252,7 @@ codexmemory search "storage markdown frontmatter" --limit 5
 Inject relevant memory for another agent:
 
 ```powershell
-codexmemory inject "implement storage migration" --limit 3
+codexmemory inject "<your task>" --limit 3
 ```
 
 ## Manual Session Commands
@@ -218,24 +260,24 @@ codexmemory inject "implement storage migration" --limit 3
 These are useful when another tool or agent is driving the coding work:
 
 ```powershell
-codexmemory session start --task "Storage migration" --request "Update storage format safely"
-codexmemory session note "We decided to keep memories as markdown because humans need easy review."
-codexmemory session add-file src/storage.js
+codexmemory session start --task "<task title>" --request "<full request>"
+codexmemory session note "<durable decision, failure, or lesson>"
+codexmemory session add-file src/example.js
 codexmemory session command "npm test" --status passed
-codexmemory session error "The first parser failed because it dropped code_paths."
-codexmemory session stop --summary "Implemented markdown parsing because storage must stay Git-friendly." --commit abc123
+codexmemory session error "<error or failed attempt>"
+codexmemory session stop --summary "<what changed and why>" --commit abc123
 ```
 
 Reflect from a saved session:
 
 ```powershell
-codexmemory reflect --session .codexmemory\sessions\session-id.json
+codexmemory reflect --session .codexmemory\sessions\<session-file>.json
 ```
 
 Reflect from notes:
 
 ```powershell
-codexmemory reflect --task "Storage migration" --file task-notes.md
+codexmemory reflect --task "<task title>" --file task-notes.md
 ```
 
 ## Memory Format
@@ -268,7 +310,7 @@ Humans can review and edit records in normal Git workflows.
 
 ## Next Time
 
-Prefer markdown records for v1 storage changes.
+Prefer markdown records for storage changes.
 ```
 
 Supported memory types:
@@ -293,13 +335,7 @@ Weak memories are filtered where possible:
 
 ## Doctor And Troubleshooting
 
-Run:
-
-```powershell
-codexmemory doctor
-```
-
-It checks:
+`codexmemory doctor` checks:
 
 - Node.js version
 - Git availability
@@ -309,15 +345,7 @@ It checks:
 - AGENTS bridge presence
 - whether `.codexmemory/bin` is on PATH
 
-Warnings do not always block usage. For example, CodexMemory still works without Codex installed when using `--dry-run`, and it still works without Git metadata when outside a Git repository.
-
-Remove generated setup files:
-
-```powershell
-codexmemory uninstall
-```
-
-`uninstall` removes CodexMemory-generated wrappers and a CodexMemory-generated root `AGENTS.md`. It leaves memories, sessions, reflections, and human-authored files alone.
+Warnings do not always block usage. CodexMemory works without Codex installed when using `--dry-run`, and it works without Git metadata outside a Git repository.
 
 ## Current Limits
 

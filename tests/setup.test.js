@@ -19,6 +19,7 @@ test("setup creates local wrappers and AGENTS bridge without external keys", () 
   assert.equal(fs.existsSync(path.join(root, ".codexmemory", "bin", "codexm")), true);
   assert.equal(fs.existsSync(path.join(root, "AGENTS.md")), true);
   assert.equal(fs.existsSync(path.join(root, ".codexmemory", "AGENTS.md")), true);
+  assert.match(fs.readFileSync(path.join(root, "AGENTS.md"), "utf8"), /codexm "<task description>"/);
   assert.match(result.path_instructions.powershell_current_session, /\.codexmemory/);
 });
 
