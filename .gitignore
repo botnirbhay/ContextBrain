@@ -1,0 +1,4 @@
+node_modules/
+.codexmemory/indexes/
+.codexmemory/bin/
+*.log
