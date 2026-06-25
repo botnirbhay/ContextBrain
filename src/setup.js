@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { initStore, paths } from "./storage.js";
 import { writeAgentsFile } from "./learn.js";
 
-const WRAPPER_MARKER = "CODEXMEMORY_GENERATED_WRAPPER";
-const AGENTS_MARKER = "CODEXMEMORY_GENERATED_AGENT_BRIDGE";
+const WRAPPER_MARKER = "CODEMEM_GENERATED_WRAPPER";
+const AGENTS_MARKER = "CODEMEM_GENERATED_AGENT_BRIDGE";
+const LEGACY_WRAPPER_MARKERS = [WRAPPER_MARKER, "CODEXMEMORY_GENERATED_WRAPPER", "CodeMem_GENERATED_WRAPPER"];
+const LEGACY_AGENTS_MARKERS = [AGENTS_MARKER, "CODEXMEMORY_GENERATED_AGENT_BRIDGE", "CodeMem_GENERATED_AGENT_BRIDGE"];
 
 export function setupIntegration({ root = process.cwd(), force = false, agents = true } = {}) {
   const p = initStore(root);
@@ -30,12 +32,12 @@ export function doctor({ root = process.cwd() } = {}) {
   return [
     check("Node.js >= 20", isNodeSupported(), process.version),
     check("Git available", commandExists("git"), commandPath("git") || "not found"),
-    check("Codex CLI available", commandExists("codex"), commandPath("codex") || "not found"),
-    check("CodexMemory store initialized", fs.existsSync(p.base), p.base),
-    check("codexm wrapper installed", wrapperExists(p.bin), p.bin),
+    check("Default agent command available", commandExists("codex"), commandPath("codex") || "not found"),
+    check("CodeMem store initialized", fs.existsSync(p.base), p.base),
+    check("codemem wrapper installed", wrapperExists(p.bin), p.bin),
     check("AGENTS.md bridge present", fs.existsSync(path.join(root, "AGENTS.md")), path.join(root, "AGENTS.md")),
-    check(".codexmemory/AGENTS.md present", fs.existsSync(path.join(p.base, "AGENTS.md")), path.join(p.base, "AGENTS.md")),
-    check(".codexmemory/bin on PATH", pathOnEnv(p.bin), p.bin)
+    check(".codemem/AGENTS.md present", fs.existsSync(path.join(p.base, "AGENTS.md")), path.join(p.base, "AGENTS.md")),
+    check(".codemem/bin on PATH", pathOnEnv(p.bin), p.bin)
   ];
 }
 
@@ -46,16 +48,16 @@ export function formatDoctor(checks) {
 export function uninstallIntegration({ root = process.cwd() } = {}) {
   const p = paths(root);
   const removed = [];
-  for (const file of ["codexm.cmd", "codexm.ps1", "codexm"]) {
+  for (const file of ["codemem.cmd", "codemem.ps1", "codemem"]) {
     const filePath = path.join(p.bin, file);
-    if (isGeneratedFile(filePath, WRAPPER_MARKER)) {
+    if (isGeneratedFile(filePath, LEGACY_WRAPPER_MARKERS)) {
       fs.unlinkSync(filePath);
       removed.push(filePath);
     }
   }
 
   const agentsPath = path.join(root, "AGENTS.md");
-  if (isGeneratedFile(agentsPath, AGENTS_MARKER)) {
+  if (isGeneratedFile(agentsPath, LEGACY_AGENTS_MARKERS)) {
     fs.unlinkSync(agentsPath);
     removed.push(agentsPath);
   }
@@ -76,36 +78,36 @@ function writeWrappers(binDir, cliPath, { force }) {
   const normalizedCli = cliPath.replace(/\\/g, "\\\\");
   const wrappers = [
     {
-      file: "codexm.cmd",
+      file: "codemem.cmd",
       content: [
         `@REM ${WRAPPER_MARKER}`,
         "@echo off",
-        `node "${cliPath}" codex %*`
+        `node "${cliPath}" %*`
       ].join("\r\n") + "\r\n"
     },
     {
-      file: "codexm.ps1",
+      file: "codemem.ps1",
       content: [
         `# ${WRAPPER_MARKER}`,
-        `$CodexMemoryCli = "${normalizedCli}"`,
-        "& node $CodexMemoryCli codex @args",
+        `$CodeMemCli = "${normalizedCli}"`,
+        "& node $CodeMemCli @args",
         "exit $LASTEXITCODE"
       ].join("\n") + "\n"
     },
     {
-      file: "codexm",
+      file: "codemem",
       content: [
         `#!/usr/bin/env sh`,
         `# ${WRAPPER_MARKER}`,
-        `node "${cliPath.replace(/"/g, '\\"')}" codex "$@"`
+        `node "${cliPath.replace(/"/g, '\\"')}" "$@"`
       ].join("\n") + "\n"
     }
   ];
 
   return wrappers.map((wrapper) => {
     const filePath = path.join(binDir, wrapper.file);
-    writeGeneratedFile(filePath, wrapper.content, WRAPPER_MARKER, { force });
-    if (wrapper.file === "codexm") {
+    writeGeneratedFile(filePath, wrapper.content, LEGACY_WRAPPER_MARKERS, { force });
+    if (wrapper.file === "codemem") {
       try {
         fs.chmodSync(filePath, 0o755);
       } catch {
@@ -120,58 +122,65 @@ function ensureAgentBridge(root, { force }) {
   const filePath = path.join(root, "AGENTS.md");
   const content = [
     `<!-- ${AGENTS_MARKER} -->`,
-    "# CodexMemory Integration",
+    "# CodeMem Integration",
     "",
-    "This repository uses CodexMemory for persistent local project memory and task reflection.",
+    "This repository uses CodeMem for persistent local project memory and task reflection.",
     "",
     "## How To Use Memory",
     "",
-    "- Read `.codexmemory/AGENTS.md` for distilled project rules when it exists.",
-    "- For task-specific context, run `codexmemory context \"<task description>\"` when the command is available.",
+    "- Read `.codemem/AGENTS.md` for distilled project rules when it exists.",
+    "- For task-specific context, run `codemem context \"<task description>\"` when the command is available.",
     "- Prefer current repository code over memory if they conflict, and mention the conflict before choosing.",
     "- Do not treat raw chat logs as memory. Durable memory should be decisions, conventions, bug fixes, failed attempts, lessons, warnings, or todos.",
     "",
     "## During Work",
     "",
-    "- If a CodexMemory session is active, record durable notes with `codexmemory session note \"<durable note>\"`.",
-    "- Record touched files with `codexmemory session add-file <path>` when useful.",
-    "- At the end, summarize the durable outcome with `codexmemory session stop --summary \"<what changed and why>\"`.",
+    "- If a CodeMem session is active, record durable notes with `codemem session note \"<durable note>\"`.",
+    "- Record touched files with `codemem session add-file <path>` when useful.",
+    "- At the end, summarize the durable outcome with `codemem session stop --summary \"<what changed and why>\"`.",
     "",
     "## Recommended User Entry Point",
     "",
-    "Users normally run Codex through the CodexMemory wrapper:",
+    "Users normally run their coding agent through the CodeMem wrapper:",
     "",
     "```bash",
-    "codexm \"<task description>\"",
+    "codemem \"<task description>\"",
     "```",
     "",
-    "This wrapper retrieves memory, prepares the Codex prompt, launches Codex, captures the outcome, and prepares reviewable learnings.",
+    "To continue the most recent Codex session with fresh memory context:",
+    "",
+    "```bash",
+    "codemem resume \"<follow-up task>\"",
+    "```",
+    "",
+    "This wrapper retrieves memory, prepares the agent prompt, launches the configured coding agent, captures the outcome, and prepares reviewable learnings.",
     ""
   ].join("\n");
 
-  if (fs.existsSync(filePath) && !isGeneratedFile(filePath, AGENTS_MARKER)) {
-    const snippetPath = path.join(root, ".codexmemory", "AGENTS.bridge.md");
+  if (fs.existsSync(filePath) && !isGeneratedFile(filePath, LEGACY_AGENTS_MARKERS)) {
+    const snippetPath = path.join(root, ".codemem", "AGENTS.bridge.md");
     fs.writeFileSync(snippetPath, content);
     return { status: "existing-agents-left-unchanged", file_path: filePath, snippet_path: snippetPath };
   }
-  writeGeneratedFile(filePath, content, AGENTS_MARKER, { force });
+  writeGeneratedFile(filePath, content, LEGACY_AGENTS_MARKERS, { force });
   return { status: "installed", file_path: filePath };
 }
 
 function writeGeneratedFile(filePath, content, marker, { force }) {
   if (fs.existsSync(filePath) && !force && !isGeneratedFile(filePath, marker)) {
-    throw new Error(`Refusing to overwrite non-CodexMemory file: ${filePath}`);
+    throw new Error(`Refusing to overwrite non-CodeMem file: ${filePath}`);
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content);
 }
 
 function isGeneratedFile(filePath, marker) {
-  return fs.existsSync(filePath) && fs.readFileSync(filePath, "utf8").includes(marker);
+  const markers = Array.isArray(marker) ? marker : [marker];
+  return fs.existsSync(filePath) && markers.some((item) => fs.readFileSync(filePath, "utf8").includes(item));
 }
 
 function getCliPath() {
-  return fileURLToPath(new URL("./cli.js", import.meta.url));
+  return fileURLToPath(new URL("./codemem.js", import.meta.url));
 }
 
 function isNodeSupported() {
@@ -193,7 +202,7 @@ function commandPath(command) {
 }
 
 function wrapperExists(binDir) {
-  return ["codexm.cmd", "codexm.ps1", "codexm"].some((file) => fs.existsSync(path.join(binDir, file)));
+  return ["codemem.cmd", "codemem.ps1", "codemem"].some((file) => fs.existsSync(path.join(binDir, file)));
 }
 
 function pathOnEnv(binDir) {

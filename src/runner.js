@@ -3,15 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { buildCodexPrompt } from "./context.js";
 import { createReflectionFromSession } from "./reflection.js";
-import { endSession, getCurrentSession, listSessions, startSession, updateSessionRecord } from "./session.js";
+import { activateSession, endSession, getCurrentSession, listSessions, startSession, updateSessionRecord } from "./session.js";
 import { paths, writeJson } from "./storage.js";
 
 export function preparePrompt(task, { root = process.cwd(), markUsed = false } = {}) {
   const p = paths(root);
   const { pack, prompt } = buildCodexPrompt(task, { root, markUsed });
   const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-  const contextPath = path.join(p.sessions, `${stamp}-context.json`);
-  const promptPath = path.join(p.sessions, `${stamp}-prompt.md`);
+  const contextPath = uniqueArtifactPath(path.join(p.sessions, `${stamp}-context.json`));
+  const promptPath = uniqueArtifactPath(path.join(p.sessions, `${stamp}-prompt.md`));
   writeJson(contextPath, pack);
   fs.writeFileSync(promptPath, prompt);
   return { pack, prompt, contextPath, promptPath };
@@ -19,7 +19,7 @@ export function preparePrompt(task, { root = process.cwd(), markUsed = false } =
 
 export function runWorkflow(task, {
   root = process.cwd(),
-  codexCommand = "codex",
+  codexCommand = "codex exec",
   dryRun = false,
   autoReflect = true
 } = {}) {
@@ -34,11 +34,9 @@ export function runWorkflow(task, {
 
   let launch = { status: "dry-run", stdout: "", stderr: "", exitCode: 0 };
   if (!dryRun) {
-    const commandParts = splitCommand(codexCommand);
-    const result = spawnSync(commandParts[0], [...commandParts.slice(1), prepared.prompt], {
+    const result = spawnCodexCommand(codexCommand, prepared.prompt, {
       cwd: root,
-      encoding: "utf8",
-      shell: process.platform === "win32"
+      inherit: false
     });
     launch = {
       status: result.status === 0 ? "completed" : "failed",
@@ -63,7 +61,7 @@ export function runWorkflow(task, {
     files_changed: unique([...(stopped.files_changed || []), ...changedFiles]),
     commands_run: [
       ...(stopped.commands_run || []),
-      { created_at: new Date().toISOString(), command: `${codexCommand} <prompt>`, status: launch.status, output: launch.stderr || launch.stdout.slice(0, 1000) }
+      { created_at: new Date().toISOString(), command: `${codexCommand} <prompt-stdin>`, status: launch.status, output: launch.stderr || launch.stdout.slice(0, 1000) }
     ]
   }, root);
 
@@ -71,30 +69,86 @@ export function runWorkflow(task, {
   return { session: stopped, ...prepared, launch, reflection };
 }
 
-export function continueWorkflow({ root = process.cwd(), codexCommand = "codex", dryRun = false } = {}) {
+export function continueWorkflow({ root = process.cwd(), codexCommand = "codex exec", dryRun = false } = {}) {
   const session = getCurrentSession(root) || listSessions(root).at(-1);
   if (!session) {
     throw new Error("No session available to continue.");
   }
   const task = session.task || session.request;
   const prepared = preparePrompt(task, { root, markUsed: true });
-  updateSessionRecord({
+  const active = activateSession({
     ...session,
-    status: "active",
     memories_used: prepared.pack.memories_used,
     context_pack_file: prepared.contextPath,
     prompt_file: prepared.promptPath
   }, root);
 
   if (!dryRun) {
-    const commandParts = splitCommand(codexCommand);
-    spawnSync(commandParts[0], [...commandParts.slice(1), prepared.prompt], {
+    spawnCodexCommand(codexCommand, prepared.prompt, {
       cwd: root,
-      stdio: "inherit",
-      shell: process.platform === "win32"
+      inherit: true
     });
   }
-  return { session, ...prepared, launch: { status: dryRun ? "dry-run" : "launched" } };
+  return { session: active, ...prepared, launch: { status: dryRun ? "dry-run" : "launched" } };
+}
+
+export function resumeWorkflow(task = "", {
+  root = process.cwd(),
+  agentCommand = "codex resume --last",
+  dryRun = false,
+  autoReflect = true
+} = {}) {
+  const session = getCurrentSession(root) || listSessions(root).at(-1);
+  if (!session) {
+    throw new Error("No session available to resume.");
+  }
+
+  const resumeTask = task.trim() || `Continue previous task: ${session.task || session.request}`;
+  const prepared = preparePrompt(resumeTask, { root, markUsed: true });
+  activateSession({
+    ...session,
+    request: resumeTask,
+    memories_used: prepared.pack.memories_used,
+    context_pack_file: prepared.contextPath,
+    prompt_file: prepared.promptPath
+  }, root);
+
+  let launch = { status: "dry-run", stdout: "", stderr: "", exitCode: 0 };
+  if (!dryRun) {
+    const result = spawnAgentCommandWithPromptArgument(agentCommand, prepared.prompt, {
+      cwd: root,
+      inherit: true
+    });
+    launch = {
+      status: result.status === 0 ? "completed" : "failed",
+      stdout: result.stdout || "",
+      stderr: result.stderr || result.error?.message || "",
+      exitCode: result.status ?? 1
+    };
+  }
+
+  const diffSummary = getGitDiffSummary(root);
+  const changedFiles = getGitChangedFiles(root);
+  const commit = getHeadCommit(root);
+  const stopped = endSession({
+    summary: launch.status === "dry-run"
+      ? "Prepared agent resume prompt and context pack without launching the agent."
+      : `Agent resume ${launch.status} with exit code ${launch.exitCode}.`,
+    commit
+  }, root);
+  updateSessionRecord({
+    ...stopped,
+    git_diff_summary: diffSummary,
+    files_changed: unique([...(stopped.files_changed || []), ...changedFiles]),
+    commands_run: [
+      ...(stopped.commands_run || []),
+      { created_at: new Date().toISOString(), command: `${agentCommand} <prompt-arg>`, status: launch.status, output: launch.stderr || launch.stdout.slice(0, 1000) }
+    ]
+  }, root);
+
+  const refreshed = listSessions(root).find((item) => item.id === stopped.id) || stopped;
+  const reflection = autoReflect ? createReflectionFromSession(refreshed.file_path, { root }) : null;
+  return { session: refreshed, ...prepared, launch, reflection };
 }
 
 export function getWorkflowStatus({ root = process.cwd() } = {}) {
@@ -117,6 +171,39 @@ function splitCommand(command) {
   return String(command).match(/(?:[^\s"]+|"[^"]*")+/g)?.map((part) => part.replace(/^"|"$/g, "")) || ["codex"];
 }
 
+function spawnCodexCommand(command, prompt, { cwd, inherit }) {
+  const options = {
+    cwd,
+    input: prompt,
+    encoding: "utf8",
+    stdio: inherit ? ["pipe", "inherit", "inherit"] : ["pipe", "pipe", "pipe"]
+  };
+  if (process.platform === "win32") {
+    return spawnSync(command, [], { ...options, shell: true });
+  }
+  const commandParts = splitCommand(command);
+  return spawnSync(commandParts[0], commandParts.slice(1), options);
+}
+
+function spawnAgentCommandWithPromptArgument(command, prompt, { cwd, inherit }) {
+  const commandParts = [...splitCommand(command), prompt];
+  const options = {
+    cwd,
+    encoding: "utf8",
+    stdio: inherit ? "inherit" : ["ignore", "pipe", "pipe"]
+  };
+  if (process.platform === "win32") {
+    return spawnSync(commandParts.map(quoteWindowsShellArg).join(" "), [], { ...options, shell: true });
+  }
+  return spawnSync(commandParts[0], commandParts.slice(1), options);
+}
+
+function quoteWindowsShellArg(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=+-]+$/.test(text)) return text;
+  return `"${text.replace(/"/g, '\\"')}"`;
+}
+
 function getGitDiffSummary(root) {
   const result = spawnSync("git", ["diff", "--stat"], { cwd: root, encoding: "utf8" });
   return result.status === 0 ? result.stdout.trim() : "";
@@ -131,7 +218,7 @@ function getGitChangedFiles(root) {
     .filter(Boolean)
     .map((line) => line.replace(/^.. /, "").replace(/^.."/, "").replace(/"$/, ""))
     .map((line) => line.includes(" -> ") ? line.split(" -> ").at(-1) : line)
-    .filter((line) => line && !line.startsWith(".codexmemory/"));
+    .filter((line) => line && !line.startsWith(".codemem/") && !line.startsWith(".codexmemory/"));
 }
 
 function getHeadCommit(root) {
@@ -141,4 +228,14 @@ function getHeadCommit(root) {
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function uniqueArtifactPath(filePath) {
+  if (!fs.existsSync(filePath)) return filePath;
+  const parsed = path.parse(filePath);
+  for (let idx = 2; idx < 1000; idx += 1) {
+    const candidate = path.join(parsed.dir, `${parsed.name}-${idx}${parsed.ext}`);
+    if (!fs.existsSync(candidate)) return candidate;
+  }
+  throw new Error(`Could not create unique artifact path for ${filePath}`);
 }

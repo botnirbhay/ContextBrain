@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import { makeId, nowIso } from "./schema.js";
 import { paths, readJson, saveMemory, writeJson } from "./storage.js";
 import { loadSession } from "./session.js";
@@ -141,8 +142,9 @@ export function createReflection(notes, { root = process.cwd(), task = "Task ref
   const p = paths(root);
   const createdAt = nowIso();
   const candidates = extractCandidateMemories(notes, { created_at: createdAt, code_paths: codePaths });
+  const baseId = `reflection-${createdAt.replace(/[-:TZ.]/g, "").slice(0, 14)}`;
   const reflection = {
-    id: `reflection-${createdAt.replace(/[-:TZ.]/g, "").slice(0, 14)}`,
+    id: uniqueReflectionId(p, baseId),
     task,
     created_at: createdAt,
     summary: summarize(notes),
@@ -219,8 +221,10 @@ export function sessionToReflectionText(session) {
     lines.push(`File touched for context only: ${file}`);
   }
   for (const command of session.commands_run || []) {
-    const text = typeof command === "string" ? command : `${command.command} (${command.status || "recorded"}) ${command.output || ""}`;
+    const text = formatCommandForReflection(command);
     lines.push(`Command run: ${text}`);
+    const failure = commandFailureForReflection(command);
+    if (failure) lines.push(`Error: ${failure}`);
   }
   for (const error of session.errors || []) {
     lines.push(`Error: ${typeof error === "string" ? error : error.text}`);
@@ -230,6 +234,22 @@ export function sessionToReflectionText(session) {
     lines.push("A failed attempt occurred during this session because recorded errors changed the implementation path.");
   }
   return lines.join("\n");
+}
+
+function formatCommandForReflection(command) {
+  if (typeof command === "string") return command;
+  const status = command.status || "recorded";
+  return `${command.command} (${status})`;
+}
+
+function commandFailureForReflection(command) {
+  if (typeof command === "string" || !command || command.status !== "failed") return "";
+  const firstLine = String(command.output || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!firstLine) return "A recorded command failed without diagnostic output.";
+  return firstLine.slice(0, 240);
 }
 
 function summarize(notes) {
@@ -306,4 +326,14 @@ function toReviewReference(memory) {
     type: memory.type,
     file_path: memory.file_path
   };
+}
+
+function uniqueReflectionId(p, baseId) {
+  const exists = (id) => fs.existsSync(path.join(p.reflections, `${id}.json`)) || fs.existsSync(path.join(p.pending, `${id}.json`));
+  if (!exists(baseId)) return baseId;
+  for (let idx = 2; idx < 1000; idx += 1) {
+    const candidate = `${baseId}-${idx}`;
+    if (!exists(candidate)) return candidate;
+  }
+  throw new Error(`Could not create unique reflection id for ${baseId}`);
 }

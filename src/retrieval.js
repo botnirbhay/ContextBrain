@@ -94,10 +94,10 @@ export function markMemoriesUsed(results, { root = process.cwd() } = {}) {
 export function formatInjection(results, { maxItems = 5 } = {}) {
   const selected = results.slice(0, maxItems);
   if (selected.length === 0) {
-    return "No relevant CodexMemory entries found.";
+    return "No relevant CodeMem entries found.";
   }
 
-  const lines = ["# Relevant CodexMemory", ""];
+  const lines = ["# Relevant CodeMem", ""];
   for (const { memory, score, reasons } of selected) {
     lines.push(`## ${memory.title}`);
     lines.push(`- Type: ${memory.type}`);

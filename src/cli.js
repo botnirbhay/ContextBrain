@@ -17,7 +17,7 @@ import {
 import { MEMORY_TYPES } from "./schema.js";
 import { buildContextPack, buildCodexPrompt, formatContextPack } from "./context.js";
 import { writeAgentsFile } from "./learn.js";
-import { continueWorkflow, getWorkflowStatus, runWorkflow } from "./runner.js";
+import { continueWorkflow, getWorkflowStatus, resumeWorkflow, runWorkflow } from "./runner.js";
 import { doctor, formatDoctor, setupIntegration, uninstallIntegration } from "./setup.js";
 
 function parseArgs(argv) {
@@ -49,37 +49,38 @@ function readInput(args) {
 }
 
 function printHelp() {
-  console.log(`CodexMemory
+  console.log(`CodeMem
 
 Commands:
-  codexmemory init
-  codexmemory setup [--force] [--no-agents]
-  codexmemory doctor
-  codexmemory codex "task" [--dry-run] [--codex-command codex]
-  codexmemory uninstall
-  codexmemory save --type decision --title "Use X" --body "..." [--code src/file.js] [--tag cli]
-  codexmemory search "query" [--limit 5]
-  codexmemory context "task"
-  codexmemory prompt "task"
-  codexmemory run "task" [--dry-run] [--codex-command codex]
-  codexmemory continue [--dry-run]
-  codexmemory status
-  codexmemory learn
-  codexmemory inject "current task" [--limit 5]
-  codexmemory reflect --task "..." --file notes.md [--approve-high-confidence]
-  codexmemory reflect --session SESSION_ID_OR_JSON
-  codexmemory review pending.json
-  codexmemory review pending.json --approve 1,3
-  codexmemory review pending.json --reject 2
-  codexmemory review pending.json --approve-all
-  codexmemory review pending.json --reject-all
-  codexmemory session start --task "..." [--request "..."]
-  codexmemory session note "..."
-  codexmemory session add-file src/file.js
-  codexmemory session command "npm test" [--status passed]
-  codexmemory session error "..."
-  codexmemory session status
-  codexmemory session stop --summary "..." [--commit HASH]
+  codemem init
+  codemem setup [--force] [--no-agents]
+  codemem doctor
+  codemem agent "task" [--dry-run] [--agent-command "codex exec"]
+  codemem uninstall
+  codemem save --type decision --title "Use X" --body "..." [--code src/file.js] [--tag cli]
+  codemem search "query" [--limit 5]
+  codemem context "task"
+  codemem prompt "task"
+  codemem run "task" [--dry-run] [--agent-command "codex exec"]
+  codemem resume ["follow-up task"] [--dry-run] [--agent-command "codex resume --last"]
+  codemem continue [--dry-run]
+  codemem status
+  codemem learn
+  codemem inject "current task" [--limit 5]
+  codemem reflect --task "..." --file notes.md [--approve-high-confidence]
+  codemem reflect --session SESSION_ID_OR_JSON
+  codemem review pending.json
+  codemem review pending.json --approve 1,3
+  codemem review pending.json --reject 2
+  codemem review pending.json --approve-all
+  codemem review pending.json --reject-all
+  codemem session start --task "..." [--request "..."]
+  codemem session note "..."
+  codemem session add-file src/file.js
+  codemem session command "npm test" [--status passed]
+  codemem session error "..."
+  codemem session status
+  codemem session stop --summary "..." [--commit HASH]
 
 Memory types: ${MEMORY_TYPES.join(", ")}
 `);
@@ -95,7 +96,7 @@ async function main() {
 
     if (command === "init") {
       const p = initStore();
-      console.log(`Initialized CodexMemory at ${p.base}`);
+      console.log(`Initialized CodeMem at ${p.base}`);
       return;
     }
 
@@ -104,18 +105,21 @@ async function main() {
         force: Boolean(args.force),
         agents: !args["no-agents"]
       });
-      console.log("CodexMemory setup complete.");
+      console.log("CodeMem setup complete.");
       console.log(`Wrapper directory: ${result.bin_dir}`);
       console.log(`Project rules: ${result.project_rules}`);
       if (result.agent_bridge.status === "installed") {
-        console.log(`Codex AGENTS bridge: ${result.agent_bridge.file_path}`);
+        console.log(`Agent instructions bridge: ${result.agent_bridge.file_path}`);
       } else if (result.agent_bridge.status === "existing-agents-left-unchanged") {
         console.log(`Existing AGENTS.md left unchanged: ${result.agent_bridge.file_path}`);
         console.log(`Bridge snippet written to: ${result.agent_bridge.snippet_path}`);
       }
       console.log("");
-      console.log("Use now:");
-      console.log(`  ${path.join(result.bin_dir, process.platform === "win32" ? "codexm.cmd" : "codexm")} "your task"`);
+      console.log("Use now if codemem is on PATH:");
+      console.log(`  codemem "your task"`);
+      console.log("");
+      console.log("Repo-local fallback:");
+      console.log(`  ${path.join(result.bin_dir, process.platform === "win32" ? "codemem.cmd" : "codemem")} "your task"`);
       console.log("");
       console.log("Optional PATH setup:");
       console.log(`  PowerShell current session: ${result.path_instructions.powershell_current_session}`);
@@ -132,9 +136,9 @@ async function main() {
     if (command === "uninstall") {
       const result = uninstallIntegration();
       if (result.removed.length === 0) {
-        console.log("No CodexMemory-generated setup files found.");
+        console.log("No CodeMem-generated setup files found.");
       } else {
-        console.log("Removed CodexMemory-generated setup files:");
+        console.log("Removed CodeMem-generated setup files:");
         for (const filePath of result.removed) console.log(`  ${filePath}`);
       }
       return;
@@ -184,17 +188,17 @@ async function main() {
       return;
     }
 
-    if (command === "run" || command === "codex") {
+    if (command === "run" || command === "agent") {
       const task = args._.join(" ");
       if (!task.trim()) throw new Error(`${command} requires a task.`);
       const result = runWorkflow(task, {
         dryRun: Boolean(args["dry-run"]),
-        codexCommand: args["codex-command"] || "codex"
+        codexCommand: args["agent-command"] || "codex exec"
       });
       console.log(`Session: ${result.session.id}`);
       console.log(`Prompt: ${result.promptPath}`);
       console.log(`Context: ${result.contextPath}`);
-      console.log(`Codex launch: ${result.launch.status}`);
+      console.log(`Agent launch: ${result.launch.status}`);
       if (result.reflection) {
         console.log(`Reflection: ${result.reflection.reflection.id}`);
         console.log(`Pending learnings: ${result.reflection.pending.length}`);
@@ -205,18 +209,34 @@ async function main() {
     if (command === "continue") {
       const result = continueWorkflow({
         dryRun: Boolean(args["dry-run"]),
-        codexCommand: args["codex-command"] || "codex"
+        codexCommand: args["agent-command"] || "codex exec"
       });
       console.log(`Session: ${result.session.id}`);
       console.log(`Prompt: ${result.promptPath}`);
-      console.log(`Codex launch: ${result.launch.status}`);
+      console.log(`Agent launch: ${result.launch.status}`);
+      return;
+    }
+
+    if (command === "resume") {
+      const task = args._.join(" ");
+      const result = resumeWorkflow(task, {
+        dryRun: Boolean(args["dry-run"]),
+        agentCommand: args["agent-command"] || "codex resume --last"
+      });
+      console.log(`Session: ${result.session.id}`);
+      console.log(`Prompt: ${result.promptPath}`);
+      console.log(`Agent resume: ${result.launch.status}`);
+      if (result.reflection) {
+        console.log(`Reflection: ${result.reflection.reflection.id}`);
+        console.log(`Pending learnings: ${result.reflection.pending.length}`);
+      }
       return;
     }
 
     if (command === "status") {
       const status = getWorkflowStatus();
       if (!status.last) {
-        console.log("No CodexMemory sessions found.");
+        console.log("No CodeMem sessions found.");
         return;
       }
       console.log(`Active: ${status.active ? status.active.id : "none"}`);

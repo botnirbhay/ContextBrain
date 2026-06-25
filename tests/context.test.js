@@ -8,7 +8,7 @@ import { searchMemories } from "../src/retrieval.js";
 import { saveMemory } from "../src/storage.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexmemory-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
 }
 
 test("context generation groups memories for Codex", () => {

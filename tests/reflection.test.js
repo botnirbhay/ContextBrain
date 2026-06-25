@@ -8,13 +8,14 @@ import {
   createReflection,
   createReflectionFromSession,
   extractCandidateMemories,
-  formatPendingReview
+  formatPendingReview,
+  sessionToReflectionText
 } from "../src/reflection.js";
 import { addSessionError, addSessionFile, addSessionNote, endSession, startSession } from "../src/session.js";
 import { listMemories, saveMemory } from "../src/storage.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexmemory-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
 }
 
 test("reflection extracts durable candidate memories from task notes", () => {
@@ -38,12 +39,28 @@ test("reflection writes pending proposals and review approves them", () => {
   });
 
   assert.equal(result.pending.length, 1);
-  const pendingFile = path.join(root, ".codexmemory", "reflections", "pending", `${result.reflection.id}.json`);
+  const pendingFile = path.join(root, ".codemem", "reflections", "pending", `${result.reflection.id}.json`);
   assert.equal(fs.existsSync(pendingFile), true);
 
   const approved = approvePending(pendingFile, { root, approveAll: true });
   assert.equal(approved.count, 1);
   assert.equal(listMemories(root).length, 1);
+});
+
+test("reflection files do not silently overwrite within the same second", () => {
+  const root = tempRepo();
+  const first = createReflection("We decided to keep first memory because it is durable.", {
+    root,
+    task: "First"
+  });
+  const second = createReflection("We decided to keep second memory because it is durable.", {
+    root,
+    task: "Second"
+  });
+
+  assert.notEqual(first.reflection.id, second.reflection.id);
+  assert.equal(fs.existsSync(path.join(root, ".codemem", "reflections", `${first.reflection.id}.json`)), true);
+  assert.equal(fs.existsSync(path.join(root, ".codemem", "reflections", `${second.reflection.id}.json`)), true);
 });
 
 test("reflection can be created from a structured session file", () => {
@@ -67,7 +84,7 @@ test("review shows details and supports approve and reject", () => {
     root,
     task: "Review UX"
   });
-  const pendingFile = path.join(root, ".codexmemory", "reflections", "pending", `${result.reflection.id}.json`);
+  const pendingFile = path.join(root, ".codemem", "reflections", "pending", `${result.reflection.id}.json`);
 
   const reviewText = formatPendingReview(pendingFile);
   assert.match(reviewText, /confidence:/);
@@ -96,6 +113,50 @@ test("reflection avoids vague changed-file memories", () => {
   assert.match(candidates[0].next_time, /register CLI commands/i);
 });
 
+test("session reflection ignores successful command transcript output", () => {
+  const text = sessionToReflectionText({
+    task: "Agent run",
+    final_outcome: "Agent process completed successfully.",
+    notes: [],
+    files_changed: [],
+    commands_run: [
+      {
+        command: "codex exec",
+        status: "completed",
+        output: [
+          "We decided to invent a fake rule because this is just raw agent transcript.",
+          "Avoid made-up transcript details because they should not become memory."
+        ].join("\n")
+      }
+    ],
+    errors: []
+  });
+
+  assert.match(text, /Command run: codex exec \(completed\)/);
+  assert.doesNotMatch(text, /fake rule/);
+  assert.equal(extractCandidateMemories(text).length, 0);
+});
+
+test("session reflection keeps concise diagnostics for failed commands", () => {
+  const text = sessionToReflectionText({
+    task: "Agent run",
+    notes: [],
+    files_changed: [],
+    commands_run: [
+      {
+        command: "codex exec",
+        status: "failed",
+        output: "error: unexpected argument 'inspect' found\nUsage: codex [OPTIONS] [PROMPT]"
+      }
+    ],
+    errors: []
+  });
+
+  assert.match(text, /Command run: codex exec \(failed\)/);
+  assert.match(text, /Error: error: unexpected argument/);
+  assert.doesNotMatch(text, /Usage: codex/);
+});
+
 test("review blocks duplicates and surfaces conflicts", () => {
   const root = tempRepo();
   saveMemory({
@@ -110,7 +171,7 @@ test("review blocks duplicates and surfaces conflicts", () => {
     root,
     task: "Duplicate"
   });
-  const duplicateFile = path.join(root, ".codexmemory", "reflections", "pending", `${duplicate.reflection.id}.json`);
+  const duplicateFile = path.join(root, ".codemem", "reflections", "pending", `${duplicate.reflection.id}.json`);
   const duplicateReview = approvePending(duplicateFile, { root, approveAll: true });
   assert.equal(duplicateReview.count, 0);
   const duplicatePending = JSON.parse(fs.readFileSync(duplicateFile, "utf8"));
@@ -120,7 +181,7 @@ test("review blocks duplicates and surfaces conflicts", () => {
     root,
     task: "Conflict"
   });
-  const conflictFile = path.join(root, ".codexmemory", "reflections", "pending", `${conflict.reflection.id}.json`);
+  const conflictFile = path.join(root, ".codemem", "reflections", "pending", `${conflict.reflection.id}.json`);
   const conflictReview = approvePending(conflictFile, { root, approveAll: true });
   assert.equal(conflictReview.count, 1);
   const conflictPending = JSON.parse(fs.readFileSync(conflictFile, "utf8"));

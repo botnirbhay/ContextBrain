@@ -16,7 +16,7 @@ import {
 } from "../src/session.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexmemory-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
 }
 
 test("session lifecycle writes current and session records", () => {
@@ -62,4 +62,28 @@ test("missing and malformed sessions are reported clearly", () => {
   const malformed = path.join(root, "bad-session.json");
   fs.writeFileSync(malformed, JSON.stringify({ id: "bad" }));
   assert.throws(() => loadSession(malformed, root), /Malformed session/);
+});
+
+test("session list orders by timestamps instead of filename", () => {
+  const root = tempRepo();
+  const sessionsDir = path.join(root, ".codemem", "sessions");
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const older = {
+    id: "20260625183148-z-task",
+    task: "z task",
+    status: "ended",
+    started_at: "2026-06-25T18:31:48.100Z",
+    ended_at: "2026-06-25T18:31:48.200Z"
+  };
+  const newer = {
+    id: "20260625183148-a-task",
+    task: "a task",
+    status: "ended",
+    started_at: "2026-06-25T18:31:48.300Z",
+    ended_at: "2026-06-25T18:31:48.400Z"
+  };
+  fs.writeFileSync(path.join(sessionsDir, `${older.id}.json`), `${JSON.stringify(older, null, 2)}\n`);
+  fs.writeFileSync(path.join(sessionsDir, `${newer.id}.json`), `${JSON.stringify(newer, null, 2)}\n`);
+
+  assert.equal(listSessions(root).at(-1).id, newer.id);
 });

@@ -1,11 +1,10 @@
 {
-  "name": "codexmemory",
+  "name": "codemem",
   "version": "0.1.0",
   "description": "Repo-local memory and reflection layer for coding agents.",
   "type": "module",
   "bin": {
-    "codexmemory": "./src/cli.js",
-    "codexm": "./src/codexm.js"
+    "codemem": "./src/codemem.js"
   },
   "scripts": {
     "test": "node --test"

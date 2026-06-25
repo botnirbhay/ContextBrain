@@ -6,16 +6,29 @@ import path from "node:path";
 import { initStore, listMemories, saveMemory } from "../src/storage.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "codexmemory-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
 }
 
 test("init creates repo-local memory directories", () => {
   const root = tempRepo();
   const p = initStore(root);
+  assert.equal(path.basename(p.base), ".codemem");
   assert.equal(fs.existsSync(p.memories), true);
   assert.equal(fs.existsSync(p.sessions), true);
   assert.equal(fs.existsSync(p.reflections), true);
   assert.equal(fs.existsSync(p.indexes), true);
+});
+
+test("init migrates an existing legacy .codexmemory store", () => {
+  const root = tempRepo();
+  const legacyMemories = path.join(root, ".codexmemory", "memories");
+  fs.mkdirSync(legacyMemories, { recursive: true });
+  fs.writeFileSync(path.join(legacyMemories, "keep.md"), "# keep\n");
+
+  const p = initStore(root);
+
+  assert.equal(fs.existsSync(path.join(root, ".codexmemory")), false);
+  assert.equal(fs.existsSync(path.join(p.memories, "keep.md")), true);
 });
 
 test("save writes a human-readable markdown memory", () => {

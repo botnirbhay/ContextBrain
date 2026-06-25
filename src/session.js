@@ -98,13 +98,26 @@ export function updateSessionRecord(session, root = process.cwd()) {
   return { ...loaded, ...session };
 }
 
+export function activateSession(sessionRef, root = process.cwd()) {
+  const p = initStore(root);
+  const session = typeof sessionRef === "string" ? loadSession(sessionRef, root) : validateSession(sessionRef);
+  const active = {
+    ...session,
+    status: "active",
+    ended_at: null
+  };
+  writeJson(active.file_path, stripFilePath(active));
+  writeJson(path.join(p.sessions, CURRENT_FILE), { id: active.id, file_path: active.file_path });
+  return active;
+}
+
 export function addSessionNote(note, root = process.cwd()) {
   if (!note.trim()) {
     throw new Error("session note requires note text.");
   }
   const session = getCurrentSession(root);
   if (!session) {
-    throw new Error("No active session. Run `codexmemory session start --task \"...\"` first.");
+    throw new Error("No active session. Run `codemem session start --task \"...\"` first.");
   }
   session.notes.push({ created_at: nowIso(), text: note.trim() });
   writeJson(session.file_path, stripFilePath(session));
@@ -167,18 +180,23 @@ export function listSessions(root = process.cwd()) {
   }
   return fs.readdirSync(p.sessions)
     .filter((file) => file.endsWith(".json") && file !== CURRENT_FILE)
-    .sort()
     .map((file) => {
       const filePath = path.join(p.sessions, file);
       return { ...readJson(filePath), file_path: filePath };
     })
-    .filter((session) => session.id && session.task && session.status);
+    .filter((session) => session.id && session.task && session.status)
+    .sort((a, b) => sessionTimestamp(a) - sessionTimestamp(b) || a.id.localeCompare(b.id));
+}
+
+function sessionTimestamp(session) {
+  const value = Date.parse(session.ended_at || session.started_at || "");
+  return Number.isNaN(value) ? 0 : value;
 }
 
 function getActiveSession(root) {
   const session = getCurrentSession(root);
   if (!session) {
-    throw new Error("No active session. Run `codexmemory session start --task \"...\"` first.");
+    throw new Error("No active session. Run `codemem session start --task \"...\"` first.");
   }
   return validateSession(session);
 }

@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { assertMemoryType, makeId, nowIso } from "./schema.js";
 
-export const MEMORY_DIR = ".codexmemory";
+export const MEMORY_DIR = ".codemem";
+export const LEGACY_MEMORY_DIR = ".codexmemory";
 
 export function resolveRoot(root = process.cwd()) {
   return path.resolve(root);
@@ -22,6 +23,7 @@ export function paths(root = process.cwd()) {
 }
 
 export function initStore(root = process.cwd()) {
+  migrateLegacyStore(root);
   const p = paths(root);
   for (const dir of [p.base, p.memories, p.sessions, p.reflections, p.indexes, p.pending]) {
     fs.mkdirSync(dir, { recursive: true });
@@ -32,7 +34,7 @@ export function initStore(root = process.cwd()) {
     fs.writeFileSync(
       readmePath,
       [
-        "# CodexMemory Store",
+        "# CodeMem Store",
         "",
         "This folder contains durable, human-editable project memories.",
         "",
@@ -46,6 +48,17 @@ export function initStore(root = process.cwd()) {
   }
 
   return p;
+}
+
+export function migrateLegacyStore(root = process.cwd()) {
+  const resolved = resolveRoot(root);
+  const current = path.join(resolved, MEMORY_DIR);
+  const legacy = path.join(resolved, LEGACY_MEMORY_DIR);
+  if (!fs.existsSync(legacy) || fs.existsSync(current)) {
+    return { migrated: false, from: legacy, to: current };
+  }
+  fs.renameSync(legacy, current);
+  return { migrated: true, from: legacy, to: current };
 }
 
 export function encodeFrontmatter(data) {
