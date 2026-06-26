@@ -62,3 +62,27 @@ test("cli config, latest review, and verify workflows work", () => {
   assert.match(review, /Review:/);
   assert.match(review, /pending file paths are noisy/);
 });
+test("cli review explains skipped duplicate approvals", () => {
+  const root = tempRepo();
+  const env = { ...process.env };
+  const cli = path.resolve("src/cli.js");
+
+  execFileSync(process.execPath, [cli, "save", "--type", "decision", "--title", "Use Prisma", "--body", "Use Prisma for persistence.", "--next-time", "Use Prisma for persistence."], {
+    cwd: root,
+    env
+  });
+  execFileSync(process.execPath, [cli, "reflect", "--body", "We decided to use Prisma for persistence because the schema is already modeled there."], {
+    cwd: root,
+    env
+  });
+
+  const output = execFileSync(process.execPath, [cli, "review", "--approve-all"], {
+    cwd: root,
+    env,
+    encoding: "utf8"
+  });
+
+  assert.match(output, /Approved 0 memories\./);
+  assert.match(output, /Skipped 1 duplicate candidate\./);
+  assert.match(output, /Duplicate:/);
+});

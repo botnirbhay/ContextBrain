@@ -339,6 +339,20 @@ async function main() {
       });
       console.log(`Approved ${result.count} memor${result.count === 1 ? "y" : "ies"}.`);
       console.log(`Rejected ${result.rejected} candidate${result.rejected === 1 ? "" : "s"}.`);
+      if (result.duplicateCount) {
+        console.log(`Skipped ${result.duplicateCount} duplicate candidate${result.duplicateCount === 1 ? "" : "s"}.`);
+        for (const item of result.duplicates) {
+          const matches = item.duplicates.map((duplicate) => duplicate.title).join("; ");
+          console.log(`- Duplicate: ${item.candidate.title} already matches ${matches}`);
+        }
+      }
+      if (result.conflictCount) {
+        console.log(`Approved ${result.conflictCount} candidate${result.conflictCount === 1 ? "" : "s"} with potential conflict${result.conflictCount === 1 ? "" : "s"}.`);
+        for (const item of result.conflicts) {
+          const matches = item.conflicts.map((conflict) => conflict.title).join("; ");
+          console.log(`- Conflict: ${item.candidate.title} conflicts with ${matches}`);
+        }
+      }
       return;
     }
 

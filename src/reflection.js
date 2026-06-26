@@ -295,6 +295,8 @@ export function approvePending(filePath, { root = process.cwd(), indices = [], r
   const approveSet = approveAll ? new Set(pending.candidates.map((_, idx) => idx + 1)) : new Set(indices);
   const rejectSet = rejectAll ? new Set(pending.candidates.map((_, idx) => idx + 1)) : new Set(reject);
   const approved = [];
+  const duplicates = [];
+  const conflicts = [];
   let rejected = 0;
 
   pending.candidates = pending.candidates.map((candidate, idx) => {
@@ -306,19 +308,23 @@ export function approvePending(filePath, { root = process.cwd(), indices = [], r
     if (approveSet.has(number) && candidate.review_status !== "approved") {
       const analysis = analyzeCandidate(candidate, root);
       if (analysis.duplicates.length > 0) {
+        const duplicateRefs = analysis.duplicates.map(toReviewReference);
+        duplicates.push({ candidate, duplicates: duplicateRefs });
         return {
           ...candidate,
           review_status: "duplicate",
-          duplicates: analysis.duplicates.map(toReviewReference),
+          duplicates: duplicateRefs,
           reviewed_at: nowIso()
         };
       }
       const saved = saveMemory({ ...candidate, status: undefined, review_status: undefined }, root);
       approved.push(saved);
+      const conflictRefs = analysis.conflicts.map(toReviewReference);
+      if (conflictRefs.length > 0) conflicts.push({ candidate, conflicts: conflictRefs, approved: saved });
       return {
         ...candidate,
-        review_status: analysis.conflicts.length ? "approved_with_conflict" : "approved",
-        conflicts: analysis.conflicts.map(toReviewReference),
+        review_status: conflictRefs.length ? "approved_with_conflict" : "approved",
+        conflicts: conflictRefs,
         approved_memory_id: saved.id,
         reviewed_at: nowIso()
       };
@@ -327,7 +333,7 @@ export function approvePending(filePath, { root = process.cwd(), indices = [], r
   });
 
   writeJson(filePath, pending);
-  return { approved, rejected, count: approved.length };
+  return { approved, rejected, duplicates, conflicts, count: approved.length, duplicateCount: duplicates.length, conflictCount: conflicts.length };
 }
 
 function toReviewReference(memory) {

@@ -174,6 +174,8 @@ test("review blocks duplicates and surfaces conflicts", () => {
   const duplicateFile = path.join(root, ".contextbrain", "reflections", "pending", `${duplicate.reflection.id}.json`);
   const duplicateReview = approvePending(duplicateFile, { root, approveAll: true });
   assert.equal(duplicateReview.count, 0);
+  assert.equal(duplicateReview.duplicateCount, 1);
+  assert.match(duplicateReview.duplicates[0].duplicates[0].title, /Use Prisma/);
   const duplicatePending = JSON.parse(fs.readFileSync(duplicateFile, "utf8"));
   assert.equal(duplicatePending.candidates[0].review_status, "duplicate");
 
@@ -184,6 +186,8 @@ test("review blocks duplicates and surfaces conflicts", () => {
   const conflictFile = path.join(root, ".contextbrain", "reflections", "pending", `${conflict.reflection.id}.json`);
   const conflictReview = approvePending(conflictFile, { root, approveAll: true });
   assert.equal(conflictReview.count, 1);
+  assert.equal(conflictReview.conflictCount, 1);
+  assert.match(conflictReview.conflicts[0].conflicts[0].title, /Use Prisma/);
   const conflictPending = JSON.parse(fs.readFileSync(conflictFile, "utf8"));
   assert.equal(conflictPending.candidates[0].review_status, "approved_with_conflict");
   assert.ok(conflictPending.candidates[0].conflicts.length >= 1);
