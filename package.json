@@ -25,7 +25,7 @@
     "LICENSE"
   ],
   "bin": {
-    "cbr": "./src/contextbrain.js"
+    "cbr": "src/contextbrain.js"
   },
   "scripts": {
     "test": "node --test"

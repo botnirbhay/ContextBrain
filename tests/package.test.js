@@ -6,7 +6,7 @@ test("package exposes only the cbr binary and production files", () => {
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
 
   assert.deepEqual(Object.keys(pkg.bin), ["cbr"]);
-  assert.equal(pkg.bin.cbr, "./src/contextbrain.js");
+  assert.equal(pkg.bin.cbr, "src/contextbrain.js");
   assert.deepEqual(pkg.files, ["src", "README.md", "LICENSE"]);
   assert.equal(pkg.repository.url, "git+https://github.com/botnirbhay/CodexMemory.git");
   assert.equal(pkg.bugs.url, "https://github.com/botnirbhay/CodexMemory/issues");
