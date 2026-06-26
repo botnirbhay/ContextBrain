@@ -172,17 +172,14 @@ function splitCommand(command) {
 }
 
 function spawnCodexCommand(command, prompt, { cwd, inherit }) {
+  const commandParts = splitCommand(command);
   const options = {
     cwd,
     input: prompt,
     encoding: "utf8",
     stdio: inherit ? ["pipe", "inherit", "inherit"] : ["pipe", "pipe", "pipe"]
   };
-  if (process.platform === "win32") {
-    return spawnSync(command, [], { ...options, shell: true });
-  }
-  const commandParts = splitCommand(command);
-  return spawnSync(commandParts[0], commandParts.slice(1), options);
+  return spawnCommandParts(commandParts, options);
 }
 
 function spawnAgentCommandWithPromptArgument(command, prompt, { cwd, inherit }) {
@@ -192,16 +189,40 @@ function spawnAgentCommandWithPromptArgument(command, prompt, { cwd, inherit }) 
     encoding: "utf8",
     stdio: inherit ? "inherit" : ["ignore", "pipe", "pipe"]
   };
-  if (process.platform === "win32") {
-    return spawnSync(commandParts.map(quoteWindowsShellArg).join(" "), [], { ...options, shell: true });
-  }
-  return spawnSync(commandParts[0], commandParts.slice(1), options);
+  return spawnCommandParts(commandParts, options);
 }
 
-function quoteWindowsShellArg(value) {
-  const text = String(value);
-  if (/^[A-Za-z0-9_./:=+-]+$/.test(text)) return text;
-  return `"${text.replace(/"/g, '\\"')}"`;
+function spawnCommandParts(commandParts, options) {
+  const resolved = resolveCommand(commandParts[0]);
+  if (process.platform === "win32" && /\.(cmd|bat)$/i.test(resolved)) {
+    const args = commandParts.slice(1);
+    const result = spawnSync(process.env.ComSpec || "cmd.exe", ["/d", "/c", resolved, ...args], options);
+    if (result.error?.code !== "EPERM") return result;
+    const powershellLine = `& ${[resolved, ...args].map(quotePowerShellArg).join(" ")}`;
+    return spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", powershellLine], options);
+  }
+  return spawnSync(resolved, commandParts.slice(1), options);
+}
+
+function resolveCommand(command) {
+  if (process.platform !== "win32" || /[\\/]/.test(command)) return resolveWindowsShim(command);
+  const result = spawnSync("where.exe", [command], { encoding: "utf8" });
+  if (result.status !== 0) return command;
+  const matches = result.stdout.trim().split(/\r?\n/).filter(Boolean);
+  return matches.map(resolveWindowsShim).find((item) => /\.(cmd|bat|exe)$/i.test(item)) || matches[0] || command;
+}
+
+function resolveWindowsShim(command) {
+  if (process.platform !== "win32" || path.extname(command)) return command;
+  for (const extension of [".cmd", ".bat", ".exe"]) {
+    const candidate = `${command}${extension}`;
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return command;
+}
+
+function quotePowerShellArg(value) {
+  return "'" + String(value).replace(/'/g, "''") + "'";
 }
 
 function getGitDiffSummary(root) {
@@ -218,7 +239,7 @@ function getGitChangedFiles(root) {
     .filter(Boolean)
     .map((line) => line.replace(/^.. /, "").replace(/^.."/, "").replace(/"$/, ""))
     .map((line) => line.includes(" -> ") ? line.split(" -> ").at(-1) : line)
-    .filter((line) => line && !line.startsWith(".codemem/") && !line.startsWith(".codexmemory/"));
+    .filter((line) => line && !line.startsWith(".contextbrain/") && !line.startsWith(".codemem/") && !line.startsWith(".codexmemory/"));
 }
 
 function getHeadCommit(root) {

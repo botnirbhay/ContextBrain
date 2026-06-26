@@ -7,22 +7,22 @@ import { execFileSync } from "node:child_process";
 import { doctor, setupIntegration, uninstallIntegration } from "../src/setup.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("setup creates local wrappers and AGENTS bridge without external keys", () => {
   const root = tempRepo();
   const result = setupIntegration({ root });
 
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "bin", "codemem.cmd")), true);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "bin", "codemem.ps1")), true);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "bin", "codemem")), true);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "bin", "cbr.cmd")), true);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "bin", "cbr.ps1")), true);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "bin", "cbr")), true);
   assert.equal(fs.existsSync(path.join(root, "AGENTS.md")), true);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "AGENTS.md")), true);
-  assert.match(fs.readFileSync(path.join(root, "AGENTS.md"), "utf8"), /codemem "<task description>"/);
-  assert.doesNotMatch(fs.readFileSync(path.join(root, ".codemem", "bin", "codemem.cmd"), "utf8"), / agent %\*/);
-  assert.match(fs.readFileSync(path.join(root, ".codemem", "bin", "codemem.cmd"), "utf8"), /codemem\.js/);
-  assert.match(result.path_instructions.powershell_current_session, /\.codemem/);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "AGENTS.md")), true);
+  assert.match(fs.readFileSync(path.join(root, "AGENTS.md"), "utf8"), /cbr "<task description>"/);
+  assert.doesNotMatch(fs.readFileSync(path.join(root, ".contextbrain", "bin", "cbr.cmd"), "utf8"), / agent %\*/);
+  assert.match(fs.readFileSync(path.join(root, ".contextbrain", "bin", "cbr.cmd"), "utf8"), /contextbrain\.js/);
+  assert.match(result.path_instructions.powershell_current_session, /\.contextbrain/);
 });
 
 test("setup does not overwrite existing AGENTS.md", () => {
@@ -41,7 +41,7 @@ test("doctor reports environment checks", () => {
   const checks = doctor({ root });
 
   assert.ok(checks.some((check) => check.name === "Node.js >= 20" && check.ok));
-  assert.ok(checks.some((check) => check.name === "codemem wrapper installed" && check.ok));
+  assert.ok(checks.some((check) => check.name === "ContextBrain wrapper installed" && check.ok));
 });
 
 test("uninstall removes only generated setup files", () => {
@@ -49,14 +49,14 @@ test("uninstall removes only generated setup files", () => {
   setupIntegration({ root });
   const result = uninstallIntegration({ root });
 
-  assert.ok(result.removed.some((file) => file.endsWith("codemem.cmd")));
+  assert.ok(result.removed.some((file) => file.endsWith("cbr.cmd")));
   assert.equal(fs.existsSync(path.join(root, "AGENTS.md")), false);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "AGENTS.md")), true);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "AGENTS.md")), true);
 });
 
-test("codemem executable entry runs the CodeMem workflow", () => {
+test("cbr executable entry runs the ContextBrain workflow", () => {
   const root = tempRepo();
-  const output = execFileSync(process.execPath, [path.resolve("src/codemem.js"), "implement oauth login", "--dry-run"], {
+  const output = execFileSync(process.execPath, [path.resolve("src/contextbrain.js"), "implement oauth login", "--dry-run"], {
     cwd: root,
     encoding: "utf8"
   });
@@ -65,14 +65,16 @@ test("codemem executable entry runs the CodeMem workflow", () => {
   assert.match(output, /Agent launch: dry-run/);
 });
 
-test("codemem executable entry passes known subcommands through", () => {
+test("cbr executable entry passes known subcommands through", () => {
   const root = tempRepo();
-  const output = execFileSync(process.execPath, [path.resolve("src/codemem.js"), "setup"], {
+  const output = execFileSync(process.execPath, [path.resolve("src/contextbrain.js"), "setup"], {
     cwd: root,
     encoding: "utf8"
   });
 
-  assert.match(output, /CodeMem setup complete/);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "bin", "codemem.cmd")), true);
+  assert.match(output, /cbr setup complete/);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "bin", "cbr.cmd")), true);
 });
+
+
 

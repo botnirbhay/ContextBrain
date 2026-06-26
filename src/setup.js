@@ -6,10 +6,10 @@ import { initStore, paths } from "./storage.js";
 import { writeAgentsFile } from "./learn.js";
 import { ensureConfig } from "./config.js";
 
-const WRAPPER_MARKER = "CODEMEM_GENERATED_WRAPPER";
-const AGENTS_MARKER = "CODEMEM_GENERATED_AGENT_BRIDGE";
-const LEGACY_WRAPPER_MARKERS = [WRAPPER_MARKER, "CODEXMEMORY_GENERATED_WRAPPER", "CodeMem_GENERATED_WRAPPER"];
-const LEGACY_AGENTS_MARKERS = [AGENTS_MARKER, "CODEXMEMORY_GENERATED_AGENT_BRIDGE", "CodeMem_GENERATED_AGENT_BRIDGE"];
+const WRAPPER_MARKER = "ContextBrain_GENERATED_WRAPPER";
+const AGENTS_MARKER = "ContextBrain_GENERATED_AGENT_BRIDGE";
+const LEGACY_WRAPPER_MARKERS = [WRAPPER_MARKER, "CODEMEM_GENERATED_WRAPPER", "CODEXMEMORY_GENERATED_WRAPPER", "CodeMem_GENERATED_WRAPPER", "ContextBrain_GENERATED_WRAPPER"];
+const LEGACY_AGENTS_MARKERS = [AGENTS_MARKER, "CODEMEM_GENERATED_AGENT_BRIDGE", "CODEXMEMORY_GENERATED_AGENT_BRIDGE", "CodeMem_GENERATED_AGENT_BRIDGE", "ContextBrain_GENERATED_AGENT_BRIDGE"];
 
 export function setupIntegration({ root = process.cwd(), force = false, agents = true } = {}) {
   const p = initStore(root);
@@ -36,12 +36,12 @@ export function doctor({ root = process.cwd() } = {}) {
     check("Node.js >= 20", isNodeSupported(), process.version),
     check("Git available", commandExists("git"), commandPath("git") || "not found"),
     check("Default agent command available", commandExists("codex"), commandPath("codex") || "not found"),
-    check("CodeMem store initialized", fs.existsSync(p.base), p.base),
-    check("CodeMem config present", fs.existsSync(path.join(p.base, "config.json")), path.join(p.base, "config.json")),
-    check("codemem wrapper installed", wrapperExists(p.bin), p.bin),
+    check("ContextBrain store initialized", fs.existsSync(p.base), p.base),
+    check("cbr config present", fs.existsSync(path.join(p.base, "config.json")), path.join(p.base, "config.json")),
+    check("ContextBrain wrapper installed", wrapperExists(p.bin), p.bin),
     check("AGENTS.md bridge present", fs.existsSync(path.join(root, "AGENTS.md")), path.join(root, "AGENTS.md")),
-    check(".codemem/AGENTS.md present", fs.existsSync(path.join(p.base, "AGENTS.md")), path.join(p.base, "AGENTS.md")),
-    check(".codemem/bin on PATH", pathOnEnv(p.bin), p.bin)
+    check(".contextbrain/AGENTS.md present", fs.existsSync(path.join(p.base, "AGENTS.md")), path.join(p.base, "AGENTS.md")),
+    check(".contextbrain/bin on PATH", pathOnEnv(p.bin), p.bin)
   ];
 }
 
@@ -52,7 +52,7 @@ export function formatDoctor(checks) {
 export function uninstallIntegration({ root = process.cwd() } = {}) {
   const p = paths(root);
   const removed = [];
-  for (const file of ["codemem.cmd", "codemem.ps1", "codemem"]) {
+  for (const file of ["cbr.cmd", "cbr.ps1", "cbr", "contextbrain.cmd", "contextbrain.ps1", "contextbrain", "codemem.cmd", "codemem.ps1", "codemem"]) {
     const filePath = path.join(p.bin, file);
     if (isGeneratedFile(filePath, LEGACY_WRAPPER_MARKERS)) {
       fs.unlinkSync(filePath);
@@ -82,7 +82,7 @@ function writeWrappers(binDir, cliPath, { force }) {
   const normalizedCli = cliPath.replace(/\\/g, "\\\\");
   const wrappers = [
     {
-      file: "codemem.cmd",
+      file: "cbr.cmd",
       content: [
         `@REM ${WRAPPER_MARKER}`,
         "@echo off",
@@ -90,16 +90,16 @@ function writeWrappers(binDir, cliPath, { force }) {
       ].join("\r\n") + "\r\n"
     },
     {
-      file: "codemem.ps1",
+      file: "cbr.ps1",
       content: [
         `# ${WRAPPER_MARKER}`,
-        `$CodeMemCli = "${normalizedCli}"`,
-        "& node $CodeMemCli @args",
+        `$ContextBrainCli = "${normalizedCli}"`,
+        "& node $ContextBrainCli @args",
         "exit $LASTEXITCODE"
       ].join("\n") + "\n"
     },
     {
-      file: "codemem",
+      file: "cbr",
       content: [
         `#!/usr/bin/env sh`,
         `# ${WRAPPER_MARKER}`,
@@ -111,7 +111,7 @@ function writeWrappers(binDir, cliPath, { force }) {
   return wrappers.map((wrapper) => {
     const filePath = path.join(binDir, wrapper.file);
     writeGeneratedFile(filePath, wrapper.content, LEGACY_WRAPPER_MARKERS, { force });
-    if (wrapper.file === "codemem") {
+    if (wrapper.file === "cbr") {
       try {
         fs.chmodSync(filePath, 0o755);
       } catch {
@@ -126,35 +126,35 @@ function ensureAgentBridge(root, { force }) {
   const filePath = path.join(root, "AGENTS.md");
   const content = [
     `<!-- ${AGENTS_MARKER} -->`,
-    "# CodeMem Integration",
+    "# ContextBrain Integration",
     "",
-    "This repository uses CodeMem for persistent local project memory and task reflection.",
+    "This repository uses ContextBrain for persistent local project memory and task reflection.",
     "",
     "## How To Use Memory",
     "",
-    "- Read `.codemem/AGENTS.md` for distilled project rules when it exists.",
-    "- For task-specific context, run `codemem context \"<task description>\"` when the command is available.",
+    "- Read `.contextbrain/AGENTS.md` for distilled project rules when it exists.",
+    "- For task-specific context, run `cbr context \"<task description>\"` when the command is available.",
     "- Prefer current repository code over memory if they conflict, and mention the conflict before choosing.",
     "- Do not treat raw chat logs as memory. Durable memory should be decisions, conventions, bug fixes, failed attempts, lessons, warnings, or todos.",
     "",
     "## During Work",
     "",
-    "- If a CodeMem session is active, record durable notes with `codemem session note \"<durable note>\"`.",
-    "- Record touched files with `codemem session add-file <path>` when useful.",
-    "- At the end, summarize the durable outcome with `codemem session stop --summary \"<what changed and why>\"`.",
+    "- If a cbr session is active, record durable notes with `cbr session note \"<durable note>\"`.",
+    "- Record touched files with `cbr session add-file <path>` when useful.",
+    "- At the end, summarize the durable outcome with `cbr session stop --summary \"<what changed and why>\"`.",
     "",
     "## Recommended User Entry Point",
     "",
-    "Users normally run their coding agent through the CodeMem wrapper:",
+    "Users normally run their coding agent through the ContextBrain wrapper:",
     "",
     "```bash",
-    "codemem \"<task description>\"",
+    "cbr \"<task description>\"",
     "```",
     "",
     "To continue the most recent Codex session with fresh memory context:",
     "",
     "```bash",
-    "codemem resume \"<follow-up task>\"",
+    "cbr resume \"<follow-up task>\"",
     "```",
     "",
     "This wrapper retrieves memory, prepares the agent prompt, launches the configured coding agent, captures the outcome, and prepares reviewable learnings.",
@@ -162,7 +162,7 @@ function ensureAgentBridge(root, { force }) {
   ].join("\n");
 
   if (fs.existsSync(filePath) && !isGeneratedFile(filePath, LEGACY_AGENTS_MARKERS)) {
-    const snippetPath = path.join(root, ".codemem", "AGENTS.bridge.md");
+    const snippetPath = path.join(root, ".contextbrain", "AGENTS.bridge.md");
     fs.writeFileSync(snippetPath, content);
     return { status: "existing-agents-left-unchanged", file_path: filePath, snippet_path: snippetPath };
   }
@@ -172,7 +172,7 @@ function ensureAgentBridge(root, { force }) {
 
 function writeGeneratedFile(filePath, content, marker, { force }) {
   if (fs.existsSync(filePath) && !force && !isGeneratedFile(filePath, marker)) {
-    throw new Error(`Refusing to overwrite non-CodeMem file: ${filePath}`);
+    throw new Error(`Refusing to overwrite non-ContextBrain file: ${filePath}`);
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content);
@@ -184,7 +184,7 @@ function isGeneratedFile(filePath, marker) {
 }
 
 function getCliPath() {
-  return fileURLToPath(new URL("./codemem.js", import.meta.url));
+  return fileURLToPath(new URL("./contextbrain.js", import.meta.url));
 }
 
 function isNodeSupported() {
@@ -206,7 +206,7 @@ function commandPath(command) {
 }
 
 function wrapperExists(binDir) {
-  return ["codemem.cmd", "codemem.ps1", "codemem"].some((file) => fs.existsSync(path.join(binDir, file)));
+  return ["cbr.cmd", "cbr.ps1", "cbr"].some((file) => fs.existsSync(path.join(binDir, file)));
 }
 
 function pathOnEnv(binDir) {
@@ -225,3 +225,7 @@ function pathInstructions(binDir) {
     bash_zsh: `export PATH="${binDir}:$PATH"`
   };
 }
+
+
+
+

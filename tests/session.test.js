@@ -16,7 +16,7 @@ import {
 } from "../src/session.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("session lifecycle writes current and session records", () => {
@@ -66,7 +66,7 @@ test("missing and malformed sessions are reported clearly", () => {
 
 test("session list orders by timestamps instead of filename", () => {
   const root = tempRepo();
-  const sessionsDir = path.join(root, ".codemem", "sessions");
+  const sessionsDir = path.join(root, ".contextbrain", "sessions");
   fs.mkdirSync(sessionsDir, { recursive: true });
   const older = {
     id: "20260625183148-z-task",

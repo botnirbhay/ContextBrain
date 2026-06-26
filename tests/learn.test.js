@@ -7,7 +7,7 @@ import { generateAgentsMarkdown, ruleFromMemory, writeAgentsFile } from "../src/
 import { saveMemory } from "../src/storage.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("learn generates AGENTS.md project rules from memories", () => {
@@ -16,7 +16,7 @@ test("learn generates AGENTS.md project rules from memories", () => {
   saveMemory({ type: "failed_attempt", title: "Avoid Redis pubsub", body: "Redis pub/sub caused missed local events.", next_time: "Avoid Redis pub/sub for local memory sync.", confidence: 0.8 }, root);
 
   const markdown = generateAgentsMarkdown({ root });
-  assert.match(markdown, /# CodeMem Project Instructions/);
+  assert.match(markdown, /# ContextBrain Project Instructions/);
   assert.match(markdown, /Use Zod validation/);
   assert.match(markdown, /Avoid Redis pub\/sub/);
 

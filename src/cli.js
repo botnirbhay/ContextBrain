@@ -50,40 +50,40 @@ function readInput(args) {
 }
 
 function printHelp() {
-  console.log(`CodeMem
+  console.log(`ContextBrain
 
 Commands:
-  codemem init
-  codemem setup [--force] [--no-agents]
-  codemem doctor
-  codemem verify
-  codemem agent "task" [--dry-run] [--agent-command "codex exec"]
-  codemem uninstall
-  codemem save --type decision --title "Use X" --body "..." [--code src/file.js] [--tag cli]
-  codemem search "query" [--limit 5]
-  codemem context "task"
-  codemem config [--agent-command "..."] [--resume-command "..."] [--auto-reflect true|false]
-  codemem prompt "task"
-  codemem run "task" [--dry-run] [--agent-command "codex exec"]
-  codemem resume ["follow-up task"] [--dry-run] [--agent-command "codex resume --last"]
-  codemem continue [--dry-run]
-  codemem status
-  codemem learn
-  codemem inject "current task" [--limit 5]
-  codemem reflect --task "..." --file notes.md [--approve-high-confidence]
-  codemem reflect --session SESSION_ID_OR_JSON
-  codemem review [pending.json|--latest]
-  codemem review pending.json --approve 1,3
-  codemem review pending.json --reject 2
-  codemem review pending.json --approve-all
-  codemem review pending.json --reject-all
-  codemem session start --task "..." [--request "..."]
-  codemem session note "..."
-  codemem session add-file src/file.js
-  codemem session command "npm test" [--status passed]
-  codemem session error "..."
-  codemem session status
-  codemem session stop --summary "..." [--commit HASH]
+  cbr init
+  cbr setup [--force] [--no-agents]
+  cbr doctor
+  cbr verify
+  cbr agent "task" [--dry-run] [--agent-command "codex exec"]
+  cbr uninstall
+  cbr save --type decision --title "Use X" --body "..." [--code src/file.js] [--tag cli]
+  cbr search "query" [--limit 5]
+  cbr context "task"
+  cbr config [--agent-command "..."] [--resume-command "..."] [--auto-reflect true|false]
+  cbr prompt "task"
+  cbr run "task" [--dry-run] [--agent-command "codex exec"]
+  cbr resume ["follow-up task"] [--dry-run] [--agent-command "codex resume --last"]
+  cbr continue [--dry-run]
+  cbr status
+  cbr learn
+  cbr inject "current task" [--limit 5]
+  cbr reflect --task "..." --file notes.md [--approve-high-confidence]
+  cbr reflect --session SESSION_ID_OR_JSON
+  cbr review [pending.json|--latest]
+  cbr review pending.json --approve 1,3
+  cbr review pending.json --reject 2
+  cbr review pending.json --approve-all
+  cbr review pending.json --reject-all
+  cbr session start --task "..." [--request "..."]
+  cbr session note "..."
+  cbr session add-file src/file.js
+  cbr session command "npm test" [--status passed]
+  cbr session error "..."
+  cbr session status
+  cbr session stop --summary "..." [--commit HASH]
 
 Memory types: ${MEMORY_TYPES.join(", ")}
 `);
@@ -99,7 +99,7 @@ async function main() {
 
     if (command === "init") {
       const p = initStore();
-      console.log(`Initialized CodeMem at ${p.base}`);
+      console.log(`Initialized ContextBrain at ${p.base}`);
       return;
     }
 
@@ -108,7 +108,7 @@ async function main() {
         force: Boolean(args.force),
         agents: !args["no-agents"]
       });
-      console.log("CodeMem setup complete.");
+      console.log("cbr setup complete.");
       console.log(`Wrapper directory: ${result.bin_dir}`);
       console.log(`Config: ${result.config}`);
       console.log(`Project rules: ${result.project_rules}`);
@@ -119,11 +119,11 @@ async function main() {
         console.log(`Bridge snippet written to: ${result.agent_bridge.snippet_path}`);
       }
       console.log("");
-      console.log("Use now if codemem is on PATH:");
-      console.log(`  codemem "your task"`);
+      console.log("Use now if cbr is on PATH:");
+      console.log(`  cbr "your task"`);
       console.log("");
       console.log("Repo-local fallback:");
-      console.log(`  ${path.join(result.bin_dir, process.platform === "win32" ? "codemem.cmd" : "codemem")} "your task"`);
+      console.log(`  ${path.join(result.bin_dir, process.platform === "win32" ? "cbr.cmd" : "cbr")} "your task"`);
       console.log("");
       console.log("Optional PATH setup:");
       console.log(`  PowerShell current session: ${result.path_instructions.powershell_current_session}`);
@@ -140,7 +140,7 @@ async function main() {
     if (command === "verify") {
       console.log(formatDoctor(doctor()));
       console.log("");
-      const result = runWorkflow("verify CodeMem setup", {
+      const result = runWorkflow("verify cbr setup", {
         dryRun: true,
         autoReflect: false
       });
@@ -164,9 +164,9 @@ async function main() {
     if (command === "uninstall") {
       const result = uninstallIntegration();
       if (result.removed.length === 0) {
-        console.log("No CodeMem-generated setup files found.");
+        console.log("No ContextBrain-generated setup files found.");
       } else {
-        console.log("Removed CodeMem-generated setup files:");
+        console.log("Removed ContextBrain-generated setup files:");
         for (const filePath of result.removed) console.log(`  ${filePath}`);
       }
       return;
@@ -269,7 +269,7 @@ async function main() {
     if (command === "status") {
       const status = getWorkflowStatus();
       if (!status.last) {
-        console.log("No CodeMem sessions found.");
+        console.log("No cbr sessions found.");
         return;
       }
       console.log(`Active: ${status.active ? status.active.id : "none"}`);
@@ -444,3 +444,6 @@ function parseBoolean(value, name) {
 }
 
 main();
+
+
+

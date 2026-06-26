@@ -6,7 +6,7 @@ import path from "node:path";
 import { ensureConfig, readConfig, writeConfig } from "../src/config.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("config is created with local-first defaults", () => {

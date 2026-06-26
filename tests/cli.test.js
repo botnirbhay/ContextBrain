@@ -6,7 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("cli core commands work without API keys", () => {
@@ -17,7 +17,7 @@ test("cli core commands work without API keys", () => {
 
   const cli = path.resolve("src/cli.js");
   const output = execFileSync(process.execPath, [cli, "init"], { cwd: root, env, encoding: "utf8" });
-  assert.match(output, /Initialized CodeMem/);
+  assert.match(output, /Initialized ContextBrain/);
 
   const started = execFileSync(process.execPath, [cli, "session", "start", "--task", "No key session"], { cwd: root, env, encoding: "utf8" });
   assert.match(started, /Started session/);
@@ -26,8 +26,8 @@ test("cli core commands work without API keys", () => {
   execFileSync(process.execPath, [cli, "session", "add-file", "src/cli.js"], { cwd: root, env });
   execFileSync(process.execPath, [cli, "session", "stop", "--summary", "No-key local flow works because all features use local files."], { cwd: root, env });
 
-  const sessionFile = fs.readdirSync(path.join(root, ".codemem", "sessions")).find((file) => file.endsWith(".json") && file !== "current.json");
-  const reflected = execFileSync(process.execPath, [cli, "reflect", "--session", path.join(root, ".codemem", "sessions", sessionFile)], {
+  const sessionFile = fs.readdirSync(path.join(root, ".contextbrain", "sessions")).find((file) => file.endsWith(".json") && file !== "current.json");
+  const reflected = execFileSync(process.execPath, [cli, "reflect", "--session", path.join(root, ".contextbrain", "sessions", sessionFile)], {
     cwd: root,
     env,
     encoding: "utf8"

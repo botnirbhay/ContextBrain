@@ -117,7 +117,7 @@ export function addSessionNote(note, root = process.cwd()) {
   }
   const session = getCurrentSession(root);
   if (!session) {
-    throw new Error("No active session. Run `codemem session start --task \"...\"` first.");
+    throw new Error("No active session. Run `cbr session start --task \"...\"` first.");
   }
   session.notes.push({ created_at: nowIso(), text: note.trim() });
   writeJson(session.file_path, stripFilePath(session));
@@ -196,7 +196,7 @@ function sessionTimestamp(session) {
 function getActiveSession(root) {
   const session = getCurrentSession(root);
   if (!session) {
-    throw new Error("No active session. Run `codemem session start --task \"...\"` first.");
+    throw new Error("No active session. Run `cbr session start --task \"...\"` first.");
   }
   return validateSession(session);
 }
@@ -205,3 +205,4 @@ function stripFilePath(session) {
   const { file_path, ...data } = session;
   return data;
 }
+

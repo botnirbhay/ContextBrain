@@ -1,10 +1,10 @@
-# CodeMem
+# ContextBrain
 
-CodeMem is a local memory and learning layer for Codex and other coding agents.
+ContextBrain is a local memory and learning layer for Codex and other coding agents.
 
 It remembers durable project knowledge such as decisions, conventions, bug fixes, failed attempts, warnings, and lessons. On later tasks it retrieves the most relevant knowledge, builds a small context pack, launches your coding agent with that context, captures what happened, and proposes new learnings for review.
 
-CodeMem is not a chat-history logger. It stores structured, human-editable memory that helps an agent behave like it has worked in the repository before.
+ContextBrain is not a chat-history logger. It stores structured, human-editable memory that helps an agent behave like it has worked in the repository before.
 
 ## Quick Start
 
@@ -15,13 +15,13 @@ Use this flow inside the project where you want memory.
 For a packaged release:
 
 ```powershell
-npm install -g codemem
+npm install -g contextbrain
 ```
 
 For local development from this repository:
 
 ```powershell
-cd C:\path\to\CodeMem
+cd C:\path\to\ContextBrain
 npm install
 npm link
 ```
@@ -29,13 +29,13 @@ npm link
 Check that the command is available:
 
 ```powershell
-codemem --help
+cbr --help
 ```
 
 If you do not use global install or `npm link`, run the CLI directly:
 
 ```powershell
-node C:\path\to\CodeMem\src\codemem.js --help
+node C:\path\to\ContextBrain\src\contextbrain.js --help
 ```
 
 ### 2. Set Up A Repo
@@ -44,14 +44,14 @@ Run setup once from the repository you want your coding agent to work in:
 
 ```powershell
 cd C:\path\to\your-project
-codemem setup
-codemem verify
+cbr setup
+cbr verify
 ```
 
-`codemem setup` creates:
+`cbr setup` creates:
 
 ```text
-.codemem/
+.contextbrain/
   AGENTS.md
   config.json
   memories/
@@ -60,17 +60,17 @@ codemem verify
     pending/
   indexes/
   bin/
-    codemem.cmd
-    codemem.ps1
-    codemem
+    cbr.cmd
+    cbr.ps1
+    contextbrain
 AGENTS.md
 ```
 
-The root `AGENTS.md` is a bridge for agents that read repository instructions. If your repo already has a human-authored `AGENTS.md`, CodeMem leaves it untouched and writes `.codemem/AGENTS.bridge.md` for you to merge manually.
+The root `AGENTS.md` is a bridge for agents that read repository instructions. If your repo already has a human-authored `AGENTS.md`, ContextBrain leaves it untouched and writes `.contextbrain/AGENTS.bridge.md` for you to merge manually.
 
 ### 3. Configure Once
 
-CodeMem works without API keys or cloud services. By default it launches Codex with:
+ContextBrain works without API keys or cloud services. By default it launches Codex with:
 
 ```json
 {
@@ -83,14 +83,14 @@ CodeMem works without API keys or cloud services. By default it launches Codex w
 To change the default agent command once per repo:
 
 ```powershell
-codemem config --agent-command "codex exec --sandbox read-only"
-codemem config --resume-command "codex resume --last --include-non-interactive"
+cbr config --agent-command "codex exec --sandbox read-only"
+cbr config --resume-command "codex resume --last --include-non-interactive"
 ```
 
 Show current config:
 
 ```powershell
-codemem config
+cbr config
 ```
 
 ### 4. Run Tasks
@@ -98,64 +98,64 @@ codemem config
 Start a new agent session with memory:
 
 ```powershell
-codemem "implement oauth login"
+cbr "implement oauth login"
 ```
 
-Continue the previous Codex session with fresh CodeMem context:
+Continue the previous Codex session with fresh cbr context:
 
 ```powershell
-codemem resume "add tests for the oauth login"
+cbr resume "add tests for the oauth login"
 ```
 
-Preview what CodeMem would do without launching the agent:
+Preview what ContextBrain would do without launching the agent:
 
 ```powershell
-codemem "inspect auth module" --dry-run
+cbr "inspect auth module" --dry-run
 ```
 
-If `codemem` is not on PATH, use the repo-local wrapper created by setup:
+If `contextbrain` is not on PATH, use the repo-local wrapper created by setup:
 
 ```powershell
-.\.codemem\bin\codemem.cmd "implement oauth login"
+.\.contextbrain\bin\cbr.cmd "implement oauth login"
 ```
 
 ### 5. Review Learnings
 
-After a task, CodeMem may propose durable memories. Review the latest pending file:
+After a task, ContextBrain may propose durable memories. Review the latest pending file:
 
 ```powershell
-codemem review
+cbr review
 ```
 
 Approve only useful memories:
 
 ```powershell
-codemem review --approve 1,3
+cbr review --approve 1,3
 ```
 
 Reject noisy memories:
 
 ```powershell
-codemem review --reject 2
+cbr review --reject 2
 ```
 
 Approve or reject everything only when you have inspected the candidates:
 
 ```powershell
-codemem review --approve-all
-codemem review --reject-all
+cbr review --approve-all
+cbr review --reject-all
 ```
 
 Regenerate distilled project instructions from approved memories:
 
 ```powershell
-codemem learn
+cbr learn
 ```
 
 This updates:
 
 ```text
-.codemem/AGENTS.md
+.contextbrain/AGENTS.md
 ```
 
 ## Daily Workflow
@@ -163,28 +163,28 @@ This updates:
 Most users only need these commands:
 
 ```powershell
-codemem setup
-codemem verify
-codemem "new task"
-codemem resume "follow-up task"
-codemem review
-codemem learn
-codemem status
+cbr setup
+cbr verify
+cbr "new task"
+cbr resume "follow-up task"
+cbr review
+cbr learn
+cbr status
 ```
 
-Use `codemem "new task"` when you want a fresh agent session.
+Use `cbr "new task"` when you want a fresh agent session.
 
-Use `codemem resume "follow-up task"` when you want Codex conversation continuity. For Codex, CodeMem launches `codex resume --last` and passes a fresh memory-aware prompt into that resumed session.
+Use `cbr resume "follow-up task"` when you want Codex conversation continuity. For Codex, ContextBrain launches `codex resume --last` and passes a fresh memory-aware prompt into that resumed session.
 
 ## How It Works
 
 When you run:
 
 ```powershell
-codemem "your task"
+cbr "your task"
 ```
 
-CodeMem:
+ContextBrain:
 
 1. Starts a repo-local session.
 2. Searches approved memories for the task.
@@ -195,10 +195,10 @@ CodeMem:
 7. Reflects on the session.
 8. Writes pending learnings for human review.
 
-The default integration is a wrapper command instead of replacing `codex`. CodeMem does not shadow real agent CLIs because that can be surprising and hard to debug. The safe production entry point is:
+The default integration is a wrapper command instead of replacing `codex`. ContextBrain does not shadow real agent CLIs because that can be surprising and hard to debug. The safe production entry point is:
 
 ```powershell
-codemem "your task"
+cbr "your task"
 ```
 
 ## Command Reference
@@ -206,73 +206,73 @@ codemem "your task"
 ### Setup And Health
 
 ```powershell
-codemem setup
-codemem verify
-codemem doctor
-codemem config
-codemem uninstall
+cbr setup
+cbr verify
+cbr doctor
+cbr config
+cbr uninstall
 ```
 
-- `setup`: initializes `.codemem/`, config, wrappers, and AGENTS bridge.
+- `setup`: initializes `.contextbrain/`, config, wrappers, and AGENTS bridge.
 - `verify`: runs diagnostics plus a dry-run workflow.
 - `doctor`: checks Node, Git, default agent command, config, wrappers, and AGENTS files.
-- `config`: shows or updates `.codemem/config.json`.
+- `config`: shows or updates `.contextbrain/config.json`.
 - `uninstall`: removes generated wrappers and generated root `AGENTS.md`; memory data remains.
 
 ### Agent Workflow
 
 ```powershell
-codemem "task"
-codemem run "task"
-codemem agent "task"
-codemem resume "follow-up task"
-codemem continue
-codemem status
+cbr "task"
+cbr run "task"
+cbr agent "task"
+cbr resume "follow-up task"
+cbr continue
+cbr status
 ```
 
-- `codemem "task"`: shorthand for a new memory-aware agent run.
+- `cbr "task"`: shorthand for a new memory-aware agent run.
 - `run` / `agent`: explicit form of the same workflow.
 - `resume`: resumes the last Codex session using the configured resume command.
-- `continue`: continues the last CodeMem session record without Codex resume semantics.
+- `continue`: continues the last cbr session record without Codex resume semantics.
 - `status`: shows the latest session, prompt, context pack, memories used, and files touched.
 
 ### Context And Prompt Preview
 
 ```powershell
-codemem context "task"
-codemem prompt "task"
-codemem inject "task"
+cbr context "task"
+cbr prompt "task"
+cbr inject "task"
 ```
 
 - `context`: shows the selected memories and why they were selected.
-- `prompt`: shows the exact prompt CodeMem would send to the agent.
+- `prompt`: shows the exact prompt ContextBrain would send to the agent.
 - `inject`: prints a compact memory block for another tool or agent.
 
 ### Memory Review
 
 ```powershell
-codemem review
-codemem review --approve 1,3
-codemem review --reject 2
-codemem review --approve-all
-codemem review --reject-all
-codemem learn
+cbr review
+cbr review --approve 1,3
+cbr review --reject 2
+cbr review --approve-all
+cbr review --reject-all
+cbr learn
 ```
 
 You can also review an explicit pending file:
 
 ```powershell
-codemem review .codemem\reflections\pending\<pending-file>.json
+cbr review .contextbrain\reflections\pending\<pending-file>.json
 ```
 
 ### Manual Memory And Reflection
 
 ```powershell
-codemem save --type decision --title "Use markdown records" --body "Store durable memories as markdown files with frontmatter."
-codemem search "storage markdown frontmatter"
-codemem list
-codemem reflect --session .codemem\sessions\<session-file>.json
-codemem reflect --task "task title" --file task-notes.md
+cbr save --type decision --title "Use markdown records" --body "Store durable memories as markdown files with frontmatter."
+cbr search "storage markdown frontmatter"
+cbr list
+cbr reflect --session .contextbrain\sessions\<session-file>.json
+cbr reflect --task "task title" --file task-notes.md
 ```
 
 Supported memory types:
@@ -286,14 +286,14 @@ decision, convention, bug, fix, failed_attempt, lesson, todo, warning
 These are useful when another tool or agent drives the coding work:
 
 ```powershell
-codemem session start --task "task title" --request "full request"
-codemem session note "durable decision, failure, or lesson"
-codemem session add-file src/example.js
-codemem session command "npm test" --status passed
-codemem session error "error or failed attempt"
-codemem session status
-codemem session stop --summary "what changed and why"
-codemem session list
+cbr session start --task "task title" --request "full request"
+cbr session note "durable decision, failure, or lesson"
+cbr session add-file src/example.js
+cbr session command "npm test" --status passed
+cbr session error "error or failed attempt"
+cbr session status
+cbr session stop --summary "what changed and why"
+cbr session list
 ```
 
 ## Memory Format
@@ -329,7 +329,7 @@ Humans can review and edit records in normal Git workflows.
 Prefer markdown records for storage changes.
 ```
 
-All files in `.codemem/` are local, human-readable, and Git-friendly.
+All files in `.contextbrain/` are local, human-readable, and Git-friendly.
 
 ## Memory Quality
 
@@ -345,26 +345,26 @@ Weak memories are filtered where possible:
 - `Validated session reflection`
 - `Something happened during the session`
 
-If two memories conflict, CodeMem surfaces the conflict during review instead of silently choosing one.
+If two memories conflict, ContextBrain surfaces the conflict during review instead of silently choosing one.
 
 ## Troubleshooting
 
 Run:
 
 ```powershell
-codemem doctor
+cbr doctor
 ```
 
 Common warnings:
 
 - `Default agent command available`: Codex is not installed or not on PATH. Dry-runs still work.
-- `.codemem/bin on PATH`: optional. Global install or `npm link` is usually better than adding repo-local bins to PATH.
-- `AGENTS.md bridge present`: setup did not create or could not replace a root `AGENTS.md`. Check `.codemem/AGENTS.bridge.md`.
+- `.contextbrain/bin on PATH`: optional. Global install or `npm link` is usually better than adding repo-local bins to PATH.
+- `AGENTS.md bridge present`: setup did not create or could not replace a root `AGENTS.md`. Check `.contextbrain/AGENTS.bridge.md`.
 
 Run:
 
 ```powershell
-codemem verify
+cbr verify
 ```
 
 to confirm diagnostics plus the dry-run workflow.
@@ -398,3 +398,5 @@ npm pack --dry-run --cache .tmp-npm-cache
 ```
 
 The test suite covers storage, retrieval, context generation, prompt generation, session capture, reflection, review, duplicate/conflict detection, memory usefulness, AGENTS.md generation, setup, doctor, verify, config, uninstall, packaging, and no-key CLI behavior.
+
+

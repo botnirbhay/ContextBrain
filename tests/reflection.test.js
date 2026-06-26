@@ -15,7 +15,7 @@ import { addSessionError, addSessionFile, addSessionNote, endSession, startSessi
 import { listMemories, saveMemory } from "../src/storage.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("reflection extracts durable candidate memories from task notes", () => {
@@ -39,7 +39,7 @@ test("reflection writes pending proposals and review approves them", () => {
   });
 
   assert.equal(result.pending.length, 1);
-  const pendingFile = path.join(root, ".codemem", "reflections", "pending", `${result.reflection.id}.json`);
+  const pendingFile = path.join(root, ".contextbrain", "reflections", "pending", `${result.reflection.id}.json`);
   assert.equal(fs.existsSync(pendingFile), true);
 
   const approved = approvePending(pendingFile, { root, approveAll: true });
@@ -59,8 +59,8 @@ test("reflection files do not silently overwrite within the same second", () => 
   });
 
   assert.notEqual(first.reflection.id, second.reflection.id);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "reflections", `${first.reflection.id}.json`)), true);
-  assert.equal(fs.existsSync(path.join(root, ".codemem", "reflections", `${second.reflection.id}.json`)), true);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "reflections", `${first.reflection.id}.json`)), true);
+  assert.equal(fs.existsSync(path.join(root, ".contextbrain", "reflections", `${second.reflection.id}.json`)), true);
 });
 
 test("reflection can be created from a structured session file", () => {
@@ -84,7 +84,7 @@ test("review shows details and supports approve and reject", () => {
     root,
     task: "Review UX"
   });
-  const pendingFile = path.join(root, ".codemem", "reflections", "pending", `${result.reflection.id}.json`);
+  const pendingFile = path.join(root, ".contextbrain", "reflections", "pending", `${result.reflection.id}.json`);
 
   const reviewText = formatPendingReview(pendingFile);
   assert.match(reviewText, /confidence:/);
@@ -171,7 +171,7 @@ test("review blocks duplicates and surfaces conflicts", () => {
     root,
     task: "Duplicate"
   });
-  const duplicateFile = path.join(root, ".codemem", "reflections", "pending", `${duplicate.reflection.id}.json`);
+  const duplicateFile = path.join(root, ".contextbrain", "reflections", "pending", `${duplicate.reflection.id}.json`);
   const duplicateReview = approvePending(duplicateFile, { root, approveAll: true });
   assert.equal(duplicateReview.count, 0);
   const duplicatePending = JSON.parse(fs.readFileSync(duplicateFile, "utf8"));
@@ -181,7 +181,7 @@ test("review blocks duplicates and surfaces conflicts", () => {
     root,
     task: "Conflict"
   });
-  const conflictFile = path.join(root, ".codemem", "reflections", "pending", `${conflict.reflection.id}.json`);
+  const conflictFile = path.join(root, ".contextbrain", "reflections", "pending", `${conflict.reflection.id}.json`);
   const conflictReview = approvePending(conflictFile, { root, approveAll: true });
   assert.equal(conflictReview.count, 1);
   const conflictPending = JSON.parse(fs.readFileSync(conflictFile, "utf8"));

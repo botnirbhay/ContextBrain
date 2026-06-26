@@ -6,13 +6,13 @@ import path from "node:path";
 import { initStore, listMemories, saveMemory } from "../src/storage.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("init creates repo-local memory directories", () => {
   const root = tempRepo();
   const p = initStore(root);
-  assert.equal(path.basename(p.base), ".codemem");
+  assert.equal(path.basename(p.base), ".contextbrain");
   assert.equal(fs.existsSync(p.memories), true);
   assert.equal(fs.existsSync(p.sessions), true);
   assert.equal(fs.existsSync(p.reflections), true);

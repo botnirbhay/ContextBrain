@@ -1,6 +1,6 @@
 node_modules/
-.codexmemory/indexes/
-.codexmemory/bin/
+.contextbrain/
+.codemem/
+.codexmemory/
 *.log
-
 .tmp-npm-cache*

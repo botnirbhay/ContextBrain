@@ -7,7 +7,7 @@ import { saveMemory } from "../src/storage.js";
 import { formatInjection, searchMemories } from "../src/retrieval.js";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("search ranks code-linked relevant memories first", () => {

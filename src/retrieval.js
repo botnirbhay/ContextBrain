@@ -94,10 +94,10 @@ export function markMemoriesUsed(results, { root = process.cwd() } = {}) {
 export function formatInjection(results, { maxItems = 5 } = {}) {
   const selected = results.slice(0, maxItems);
   if (selected.length === 0) {
-    return "No relevant CodeMem entries found.";
+    return "No relevant ContextBrain entries found.";
   }
 
-  const lines = ["# Relevant CodeMem", ""];
+  const lines = ["# Relevant ContextBrain", ""];
   for (const { memory, score, reasons } of selected) {
     lines.push(`## ${memory.title}`);
     lines.push(`- Type: ${memory.type}`);
@@ -116,3 +116,4 @@ export function formatInjection(results, { maxItems = 5 } = {}) {
   }
   return lines.join("\n").trimEnd();
 }
+

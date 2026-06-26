@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { assertMemoryType, makeId, nowIso } from "./schema.js";
 
-export const MEMORY_DIR = ".codemem";
-export const LEGACY_MEMORY_DIR = ".codexmemory";
+export const MEMORY_DIR = ".contextbrain";
+export const LEGACY_MEMORY_DIRS = [".membrain", ".codemem", ".codexmemory"];
 
 export function resolveRoot(root = process.cwd()) {
   return path.resolve(root);
@@ -34,7 +34,7 @@ export function initStore(root = process.cwd()) {
     fs.writeFileSync(
       readmePath,
       [
-        "# CodeMem Store",
+        "# ContextBrain Store",
         "",
         "This folder contains durable, human-editable project memories.",
         "",
@@ -53,12 +53,17 @@ export function initStore(root = process.cwd()) {
 export function migrateLegacyStore(root = process.cwd()) {
   const resolved = resolveRoot(root);
   const current = path.join(resolved, MEMORY_DIR);
-  const legacy = path.join(resolved, LEGACY_MEMORY_DIR);
-  if (!fs.existsSync(legacy) || fs.existsSync(current)) {
-    return { migrated: false, from: legacy, to: current };
+  if (fs.existsSync(current)) {
+    return { migrated: false, from: "", to: current };
   }
-  fs.renameSync(legacy, current);
-  return { migrated: true, from: legacy, to: current };
+  for (const legacyDir of LEGACY_MEMORY_DIRS) {
+    const legacy = path.join(resolved, legacyDir);
+    if (fs.existsSync(legacy)) {
+      fs.renameSync(legacy, current);
+      return { migrated: true, from: legacy, to: current };
+    }
+  }
+  return { migrated: false, from: "", to: current };
 }
 
 export function encodeFrontmatter(data) {
@@ -243,3 +248,6 @@ export function writeJson(filePath, value) {
 export function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
+
+
+

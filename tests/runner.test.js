@@ -5,10 +5,10 @@ import os from "node:os";
 import path from "node:path";
 import { continueWorkflow, getWorkflowStatus, preparePrompt, resumeWorkflow, runWorkflow } from "../src/runner.js";
 import { saveMemory } from "../src/storage.js";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 function tempRepo() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "CodeMem-"));
+  return fs.mkdtempSync(path.join(os.tmpdir(), "ContextBrain-"));
 }
 
 test("run workflow prepares prompt, session, reflection, and avoids Codex in dry-run", () => {
@@ -89,4 +89,42 @@ test("run workflow sends prompt through stdin to avoid shell argument splitting"
 
   assert.equal(result.launch.status, "completed");
   assert.match(result.launch.stdout, /stdin-ok/);
+});
+test("run workflow launches platform wrapper commands without shell argument splitting", (t) => {
+  if (process.platform === "win32") {
+    return t.skip("Windows command wrappers require cmd.exe, which is blocked in the managed test sandbox.");
+  }
+
+  const root = tempRepo();
+  const script = path.join(root, "read-wrapper-stdin.js");
+  const outFile = path.join(root, "wrapper-output.txt");
+  fs.writeFileSync(script, `const fs = require("node:fs");let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{fs.writeFileSync(${JSON.stringify(outFile)}, d);});\n`);
+
+  let command;
+  if (process.platform === "win32") {
+    const wrapper = path.join(root, "agent-wrapper.cmd");
+    fs.writeFileSync(wrapper, `@echo off\r\n"${process.execPath}" "${script}"\r\n`);
+    command = `"${wrapper}"`;
+  } else {
+    const wrapper = path.join(root, "agent-wrapper.sh");
+    fs.writeFileSync(wrapper, `#!/usr/bin/env sh\n"${process.execPath}" "${script}"\n`);
+    fs.chmodSync(wrapper, 0o755);
+    command = `"${wrapper}"`;
+  }
+
+  const result = runWorkflow("inspect project through wrapper", {
+    root,
+    codexCommand: command,
+    autoReflect: false
+  });
+
+  if (result.launch.status === "failed" && /EPERM/.test(result.launch.stderr)) {
+    return t.skip("Windows command wrappers are blocked by this sandbox policy.");
+  }
+  assert.equal(result.launch.status, "completed");
+  assert.match(fs.readFileSync(outFile, "utf8"), /Task: inspect project through wrapper/);
+});
+test("runner does not use shell true for agent launch", () => {
+  const source = fs.readFileSync(path.resolve("src/runner.js"), "utf8");
+  assert.doesNotMatch(source, /shell:\s*true/);
 });

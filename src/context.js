@@ -48,7 +48,7 @@ export function buildContextPack(task, { root = process.cwd(), limit = 8, markUs
 export function formatContextPack(pack, { includeTask = true } = {}) {
   const lines = includeTask ? [`Task: ${pack.task}`, ""] : [];
   if (pack.groups.length === 0) {
-    lines.push("No relevant CodeMem entries found.");
+    lines.push("No relevant ContextBrain entries found.");
     return lines.join("\n");
   }
 
@@ -77,7 +77,8 @@ export function buildCodexPrompt(task, { root = process.cwd(), markUsed = false 
       formatContextPack(pack, { includeTask: false }),
       "",
       "Use the relevant project memory above as guidance. Prefer current repository code over memory if they conflict, and surface any conflict before deciding.",
-      "After completing the work, summarize durable decisions, failed attempts, bug fixes, changed files, commands run, and final outcome so CodeMem can reflect on them."
+      "After completing the work, summarize durable decisions, failed attempts, bug fixes, changed files, commands run, and final outcome so ContextBrain can reflect on them."
     ].join("\n")
   };
 }
+

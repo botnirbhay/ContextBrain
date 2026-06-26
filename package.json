@@ -1,5 +1,5 @@
 {
-  "name": "codemem",
+  "name": "contextbrain",
   "version": "0.1.0",
   "description": "Repo-local memory and reflection layer for coding agents.",
   "type": "module",
@@ -25,7 +25,7 @@
     "LICENSE"
   ],
   "bin": {
-    "codemem": "./src/codemem.js"
+    "cbr": "./src/contextbrain.js"
   },
   "scripts": {
     "test": "node --test"
