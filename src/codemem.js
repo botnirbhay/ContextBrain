@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const subcommands = new Set([
   "agent",
+  "config",
   "context",
   "continue",
   "doctor",
@@ -20,6 +21,7 @@ const subcommands = new Set([
   "setup",
   "status",
   "uninstall",
+  "verify",
   "--help"
 ]);
 

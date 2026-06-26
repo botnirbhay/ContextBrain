@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { initStore, listMemories, saveMemory } from "./storage.js";
 import { formatInjection, searchMemories } from "./retrieval.js";
-import { approvePending, createReflection, createReflectionFromSession, formatPendingReview } from "./reflection.js";
+import { approvePending, createReflection, createReflectionFromSession, formatPendingReview, latestPendingReviewFile } from "./reflection.js";
 import {
   addSessionCommand,
   addSessionError,
@@ -19,6 +19,7 @@ import { buildContextPack, buildCodexPrompt, formatContextPack } from "./context
 import { writeAgentsFile } from "./learn.js";
 import { continueWorkflow, getWorkflowStatus, resumeWorkflow, runWorkflow } from "./runner.js";
 import { doctor, formatDoctor, setupIntegration, uninstallIntegration } from "./setup.js";
+import { formatConfig, readConfig, writeConfig } from "./config.js";
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
@@ -55,11 +56,13 @@ Commands:
   codemem init
   codemem setup [--force] [--no-agents]
   codemem doctor
+  codemem verify
   codemem agent "task" [--dry-run] [--agent-command "codex exec"]
   codemem uninstall
   codemem save --type decision --title "Use X" --body "..." [--code src/file.js] [--tag cli]
   codemem search "query" [--limit 5]
   codemem context "task"
+  codemem config [--agent-command "..."] [--resume-command "..."] [--auto-reflect true|false]
   codemem prompt "task"
   codemem run "task" [--dry-run] [--agent-command "codex exec"]
   codemem resume ["follow-up task"] [--dry-run] [--agent-command "codex resume --last"]
@@ -69,7 +72,7 @@ Commands:
   codemem inject "current task" [--limit 5]
   codemem reflect --task "..." --file notes.md [--approve-high-confidence]
   codemem reflect --session SESSION_ID_OR_JSON
-  codemem review pending.json
+  codemem review [pending.json|--latest]
   codemem review pending.json --approve 1,3
   codemem review pending.json --reject 2
   codemem review pending.json --approve-all
@@ -107,6 +110,7 @@ async function main() {
       });
       console.log("CodeMem setup complete.");
       console.log(`Wrapper directory: ${result.bin_dir}`);
+      console.log(`Config: ${result.config}`);
       console.log(`Project rules: ${result.project_rules}`);
       if (result.agent_bridge.status === "installed") {
         console.log(`Agent instructions bridge: ${result.agent_bridge.file_path}`);
@@ -130,6 +134,30 @@ async function main() {
 
     if (command === "doctor") {
       console.log(formatDoctor(doctor()));
+      return;
+    }
+
+    if (command === "verify") {
+      console.log(formatDoctor(doctor()));
+      console.log("");
+      const result = runWorkflow("verify CodeMem setup", {
+        dryRun: true,
+        autoReflect: false
+      });
+      console.log("Dry-run workflow: OK");
+      console.log(`Session: ${result.session.id}`);
+      console.log(`Prompt: ${result.promptPath}`);
+      console.log(`Context: ${result.contextPath}`);
+      return;
+    }
+
+    if (command === "config") {
+      const updates = {};
+      if (args["agent-command"]) updates.agentCommand = args["agent-command"];
+      if (args["resume-command"]) updates.resumeCommand = args["resume-command"];
+      if (args["auto-reflect"] !== undefined) updates.autoReflect = parseBoolean(args["auto-reflect"], "auto-reflect");
+      const config = Object.keys(updates).length ? writeConfig(updates) : readConfig();
+      console.log(formatConfig(config));
       return;
     }
 
@@ -191,9 +219,11 @@ async function main() {
     if (command === "run" || command === "agent") {
       const task = args._.join(" ");
       if (!task.trim()) throw new Error(`${command} requires a task.`);
+      const config = readConfig();
       const result = runWorkflow(task, {
         dryRun: Boolean(args["dry-run"]),
-        codexCommand: args["agent-command"] || "codex exec"
+        codexCommand: args["agent-command"] || config.agentCommand,
+        autoReflect: config.autoReflect
       });
       console.log(`Session: ${result.session.id}`);
       console.log(`Prompt: ${result.promptPath}`);
@@ -207,9 +237,10 @@ async function main() {
     }
 
     if (command === "continue") {
+      const config = readConfig();
       const result = continueWorkflow({
         dryRun: Boolean(args["dry-run"]),
-        codexCommand: args["agent-command"] || "codex exec"
+        codexCommand: args["agent-command"] || config.agentCommand
       });
       console.log(`Session: ${result.session.id}`);
       console.log(`Prompt: ${result.promptPath}`);
@@ -219,9 +250,11 @@ async function main() {
 
     if (command === "resume") {
       const task = args._.join(" ");
+      const config = readConfig();
       const result = resumeWorkflow(task, {
         dryRun: Boolean(args["dry-run"]),
-        agentCommand: args["agent-command"] || "codex resume --last"
+        agentCommand: args["agent-command"] || config.resumeCommand,
+        autoReflect: config.autoReflect
       });
       console.log(`Session: ${result.session.id}`);
       console.log(`Prompt: ${result.promptPath}`);
@@ -289,8 +322,8 @@ async function main() {
     }
 
     if (command === "review") {
-      const filePath = args._[0];
-      if (!filePath) throw new Error("review requires a pending reflection JSON file.");
+      const filePath = args._[0] || latestPendingReviewFile();
+      if (!filePath) throw new Error("No pending review files found.");
       const resolved = path.resolve(filePath);
       const approve = parseIndexList(args.approve || args.only);
       const reject = parseIndexList(args.reject);
@@ -402,6 +435,12 @@ async function main() {
 function parseIndexList(value) {
   if (!value) return [];
   return String(value).split(",").map((item) => Number(item.trim())).filter(Boolean);
+}
+
+function parseBoolean(value, name) {
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+  throw new Error(`--${name} must be true or false.`);
 }
 
 main();

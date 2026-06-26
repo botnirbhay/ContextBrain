@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { initStore, paths } from "./storage.js";
 import { writeAgentsFile } from "./learn.js";
+import { ensureConfig } from "./config.js";
 
 const WRAPPER_MARKER = "CODEMEM_GENERATED_WRAPPER";
 const AGENTS_MARKER = "CODEMEM_GENERATED_AGENT_BRIDGE";
@@ -12,6 +13,7 @@ const LEGACY_AGENTS_MARKERS = [AGENTS_MARKER, "CODEXMEMORY_GENERATED_AGENT_BRIDG
 
 export function setupIntegration({ root = process.cwd(), force = false, agents = true } = {}) {
   const p = initStore(root);
+  const config = ensureConfig(root);
   fs.mkdirSync(p.bin, { recursive: true });
   const cliPath = getCliPath();
   const wrappers = writeWrappers(p.bin, cliPath, { force });
@@ -20,6 +22,7 @@ export function setupIntegration({ root = process.cwd(), force = false, agents =
 
   return {
     bin_dir: p.bin,
+    config,
     wrappers,
     project_rules: projectRules,
     agent_bridge: agentBridge,
@@ -34,6 +37,7 @@ export function doctor({ root = process.cwd() } = {}) {
     check("Git available", commandExists("git"), commandPath("git") || "not found"),
     check("Default agent command available", commandExists("codex"), commandPath("codex") || "not found"),
     check("CodeMem store initialized", fs.existsSync(p.base), p.base),
+    check("CodeMem config present", fs.existsSync(path.join(p.base, "config.json")), path.join(p.base, "config.json")),
     check("codemem wrapper installed", wrapperExists(p.bin), p.bin),
     check("AGENTS.md bridge present", fs.existsSync(path.join(root, "AGENTS.md")), path.join(root, "AGENTS.md")),
     check(".codemem/AGENTS.md present", fs.existsSync(path.join(p.base, "AGENTS.md")), path.join(p.base, "AGENTS.md")),

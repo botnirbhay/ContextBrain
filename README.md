@@ -1,292 +1,299 @@
 # CodeMem
 
-CodeMem is a local memory and learning layer for Codex and other coding agents. It stores structured project knowledge such as decisions, conventions, bug fixes, failed attempts, warnings, and lessons, then injects the most relevant knowledge into future coding sessions.
+CodeMem is a local memory and learning layer for Codex and other coding agents.
 
-CodeMem is not a chat-history logger. It keeps durable, human-reviewable memories that help an agent behave like it has worked in the repository before.
+It remembers durable project knowledge such as decisions, conventions, bug fixes, failed attempts, warnings, and lessons. On later tasks it retrieves the most relevant knowledge, builds a small context pack, launches your coding agent with that context, captures what happened, and proposes new learnings for review.
 
-## What A First-Time User Does
+CodeMem is not a chat-history logger. It stores structured, human-editable memory that helps an agent behave like it has worked in the repository before.
 
-Use this flow in the real project where Codex should have memory.
+## Quick Start
 
-### 1. Install CodeMem
+Use this flow inside the project where you want memory.
 
-From the CodeMem repository:
+### 1. Install
+
+For a packaged release:
 
 ```powershell
+npm install -g codemem
+```
+
+For local development from this repository:
+
+```powershell
+cd C:\path\to\CodeMem
 npm install
 npm link
 ```
 
-Verify the commands are available:
+Check that the command is available:
 
 ```powershell
 codemem --help
 ```
 
-If you do not want to use `npm link`, replace `codemem` in the examples with:
+If you do not use global install or `npm link`, run the CLI directly:
 
 ```powershell
-node C:\path\to\CodeMem\src\cli.js
+node C:\path\to\CodeMem\src\codemem.js --help
 ```
 
-### 2. Set Up One Project
+### 2. Set Up A Repo
 
-Go to the project you want Codex to work on:
+Run setup once from the repository you want your coding agent to work in:
 
 ```powershell
 cd C:\path\to\your-project
 codemem setup
-codemem doctor
+codemem verify
 ```
 
-`setup` creates local files in that project:
+`codemem setup` creates:
 
 ```text
 .codemem/
   AGENTS.md
-  bin/
-    codemem.cmd
-    codemem.ps1
-    codemem
+  config.json
   memories/
   sessions/
   reflections/
     pending/
   indexes/
+  bin/
+    codemem.cmd
+    codemem.ps1
+    codemem
+AGENTS.md
 ```
 
-It also creates a root `AGENTS.md` bridge if one does not already exist. If your project already has a human-authored `AGENTS.md`, CodeMem leaves it untouched and writes `.codemem/AGENTS.bridge.md` for you to merge manually.
+The root `AGENTS.md` is a bridge for agents that read repository instructions. If your repo already has a human-authored `AGENTS.md`, CodeMem leaves it untouched and writes `.codemem/AGENTS.bridge.md` for you to merge manually.
 
-### 3. Run A Safe Dry Run
+### 3. Configure Once
 
-`<your task>` is a placeholder. Replace it with the actual thing you want Codex to do.
+CodeMem works without API keys or cloud services. By default it launches Codex with:
 
-PowerShell:
+```json
+{
+  "agentCommand": "codex exec",
+  "resumeCommand": "codex resume --last",
+  "autoReflect": true
+}
+```
+
+To change the default agent command once per repo:
 
 ```powershell
-codemem "<your task>" --dry-run
+codemem config --agent-command "codex exec --sandbox read-only"
+codemem config --resume-command "codex resume --last --include-non-interactive"
 ```
 
-Example with a real task:
+Show current config:
 
 ```powershell
-codemem "inspect the authentication module and report likely cleanup tasks" --dry-run
+codemem config
 ```
 
-Dry-run does not launch the configured agent. It only creates the prompt, context pack, session record, and reflection scaffold so you can verify the setup.
+### 4. Run Tasks
 
-### 4. Run An Agent With Memory
-
-After the dry run looks good and your coding-agent CLI is installed. Codex is the default command today:
+Start a new agent session with memory:
 
 ```powershell
-codemem "<your task>"
+codemem "implement oauth login"
 ```
 
-Use this when you want a fresh agent session for a new task.
-
-To continue the most recent Codex session instead:
+Continue the previous Codex session with fresh CodeMem context:
 
 ```powershell
-codemem resume "<follow-up task>"
+codemem resume "add tests for the oauth login"
 ```
 
-For Codex, this launches `codex resume --last` with a fresh CodeMem prompt. That keeps the Codex conversation continuity while still refreshing project memory and context.
-
-If you did not run `npm link`, use the repo-local wrapper:
+Preview what CodeMem would do without launching the agent:
 
 ```powershell
-.codemem\bin\codemem.cmd "<your task>"
+codemem "inspect auth module" --dry-run
 ```
 
-The setup command also prints optional PATH commands for `.codemem/bin`, but the recommended developer install is `npm link` so `codemem` is available everywhere.
+If `codemem` is not on PATH, use the repo-local wrapper created by setup:
+
+```powershell
+.\.codemem\bin\codemem.cmd "implement oauth login"
+```
 
 ### 5. Review Learnings
 
-After a task, inspect pending learnings:
+After a task, CodeMem may propose durable memories. Review the latest pending file:
 
 ```powershell
-Get-ChildItem .codemem\reflections\pending
+codemem review
 ```
 
-Review a pending file. Replace `<pending-file>` with the real file name from the previous command:
+Approve only useful memories:
 
 ```powershell
-codemem review .codemem\reflections\pending\<pending-file>.json
+codemem review --approve 1,3
 ```
 
-Approve only the useful candidates:
+Reject noisy memories:
 
 ```powershell
-codemem review .codemem\reflections\pending\<pending-file>.json --approve 1,3
+codemem review --reject 2
 ```
 
-Or approve all only when every candidate is good:
+Approve or reject everything only when you have inspected the candidates:
 
 ```powershell
-codemem review .codemem\reflections\pending\<pending-file>.json --approve-all
+codemem review --approve-all
+codemem review --reject-all
 ```
 
-Regenerate distilled project rules:
+Regenerate distilled project instructions from approved memories:
 
 ```powershell
 codemem learn
 ```
 
-That updates:
+This updates:
 
 ```text
 .codemem/AGENTS.md
 ```
 
-## How Coding-Agent Integration Works
+## Daily Workflow
 
-CodeMem integrates with coding agents in two safe ways.
-
-### Wrapper Integration
-
-The wrapper is the main integration:
+Most users only need these commands:
 
 ```powershell
-codemem "<your task>"
-```
-
-The wrapper does the full lifecycle:
-
-1. Starts a codemem session.
-2. Retrieves relevant memories.
-3. Builds a small context pack.
-4. Builds the final agent prompt.
-5. Launches the real default agent command with that enriched prompt.
-6. Captures changed files, git diff summary, command metadata, and outcome.
-7. Reflects on the session.
-8. Writes pending learnings for review.
-
-Equivalent explicit command:
-
-```powershell
-codemem agent "<your task>"
-```
-
-### AGENTS.md Bridge
-
-`setup` creates a root `AGENTS.md` bridge so an agent opened directly in the repo can see that the repository uses CodeMem. It tells Codex to consult `.codemem/AGENTS.md` and use task-specific memory when available.
-
-This helps, but it cannot fully automate the lifecycle by itself. If you run the real Codex command directly:
-
-```powershell
-codex "<your task>"
-```
-
-CodeMem does not automatically get a pre-run or post-run hook unless Codex itself provides one. That is why the wrapper command exists.
-
-## Why CodeMem Does Not Replace Agent Commands By Default
-
-CodeMem does not install fake agent commands by default because shadowing real CLIs can be surprising and hard to debug. A direct shim must avoid recursion, preserve the real agent path, and uninstall cleanly.
-
-The safe production default is:
-
-```powershell
-codemem "<your task>"
-```
-
-This gives a short command without hiding the real `codex` binary.
-
-## Common Commands
-
-Preview the exact prompt CodeMem would send to the configured coding agent:
-
-```powershell
-codemem prompt "<your task>"
-```
-
-Preview the memory context only:
-
-```powershell
-codemem context "<your task>"
-```
-
-Run the workflow without launching the configured agent:
-
-```powershell
-codemem agent "<your task>" --dry-run
-```
-
-Run the real workflow:
-
-```powershell
-codemem "<your task>"
-```
-
-Resume the previous Codex session with fresh memory context:
-
-```powershell
-codemem resume "<follow-up task>"
-```
-
-Check current state:
-
-```powershell
+codemem setup
+codemem verify
+codemem "new task"
+codemem resume "follow-up task"
+codemem review
+codemem learn
 codemem status
 ```
 
-Run diagnostics:
+Use `codemem "new task"` when you want a fresh agent session.
+
+Use `codemem resume "follow-up task"` when you want Codex conversation continuity. For Codex, CodeMem launches `codex resume --last` and passes a fresh memory-aware prompt into that resumed session.
+
+## How It Works
+
+When you run:
 
 ```powershell
-codemem doctor
+codemem "your task"
 ```
 
-Remove generated setup files:
+CodeMem:
+
+1. Starts a repo-local session.
+2. Searches approved memories for the task.
+3. Builds a small context pack.
+4. Builds the final agent prompt.
+5. Launches the configured agent command.
+6. Captures changed files, git diff summary, command metadata, and outcome.
+7. Reflects on the session.
+8. Writes pending learnings for human review.
+
+The default integration is a wrapper command instead of replacing `codex`. CodeMem does not shadow real agent CLIs because that can be surprising and hard to debug. The safe production entry point is:
 
 ```powershell
+codemem "your task"
+```
+
+## Command Reference
+
+### Setup And Health
+
+```powershell
+codemem setup
+codemem verify
+codemem doctor
+codemem config
 codemem uninstall
 ```
 
-`uninstall` removes only CodeMem-generated wrappers and a CodeMem-generated root `AGENTS.md`. It leaves memories, sessions, reflections, and human-authored files alone.
+- `setup`: initializes `.codemem/`, config, wrappers, and AGENTS bridge.
+- `verify`: runs diagnostics plus a dry-run workflow.
+- `doctor`: checks Node, Git, default agent command, config, wrappers, and AGENTS files.
+- `config`: shows or updates `.codemem/config.json`.
+- `uninstall`: removes generated wrappers and generated root `AGENTS.md`; memory data remains.
 
-## Manual Memory Commands
-
-Save a memory manually:
+### Agent Workflow
 
 ```powershell
-codemem save --type decision --title "Use markdown records" --body "Store durable memories as markdown files with frontmatter." --rationale "Humans can review and edit records in normal Git workflows." --next-time "Prefer markdown records for storage changes." --code src/storage.js --tag storage
+codemem "task"
+codemem run "task"
+codemem agent "task"
+codemem resume "follow-up task"
+codemem continue
+codemem status
 ```
 
-Search memories:
+- `codemem "task"`: shorthand for a new memory-aware agent run.
+- `run` / `agent`: explicit form of the same workflow.
+- `resume`: resumes the last Codex session using the configured resume command.
+- `continue`: continues the last CodeMem session record without Codex resume semantics.
+- `status`: shows the latest session, prompt, context pack, memories used, and files touched.
+
+### Context And Prompt Preview
 
 ```powershell
-codemem search "storage markdown frontmatter" --limit 5
+codemem context "task"
+codemem prompt "task"
+codemem inject "task"
 ```
 
-Inject relevant memory for another agent:
+- `context`: shows the selected memories and why they were selected.
+- `prompt`: shows the exact prompt CodeMem would send to the agent.
+- `inject`: prints a compact memory block for another tool or agent.
+
+### Memory Review
 
 ```powershell
-codemem inject "<your task>" --limit 3
+codemem review
+codemem review --approve 1,3
+codemem review --reject 2
+codemem review --approve-all
+codemem review --reject-all
+codemem learn
 ```
 
-## Manual Session Commands
-
-These are useful when another tool or agent is driving the coding work:
+You can also review an explicit pending file:
 
 ```powershell
-codemem session start --task "<task title>" --request "<full request>"
-codemem session note "<durable decision, failure, or lesson>"
+codemem review .codemem\reflections\pending\<pending-file>.json
+```
+
+### Manual Memory And Reflection
+
+```powershell
+codemem save --type decision --title "Use markdown records" --body "Store durable memories as markdown files with frontmatter."
+codemem search "storage markdown frontmatter"
+codemem list
+codemem reflect --session .codemem\sessions\<session-file>.json
+codemem reflect --task "task title" --file task-notes.md
+```
+
+Supported memory types:
+
+```text
+decision, convention, bug, fix, failed_attempt, lesson, todo, warning
+```
+
+### Manual Sessions
+
+These are useful when another tool or agent drives the coding work:
+
+```powershell
+codemem session start --task "task title" --request "full request"
+codemem session note "durable decision, failure, or lesson"
 codemem session add-file src/example.js
 codemem session command "npm test" --status passed
-codemem session error "<error or failed attempt>"
-codemem session stop --summary "<what changed and why>" --commit abc123
-```
-
-Reflect from a saved session:
-
-```powershell
-codemem reflect --session .codemem\sessions\<session-file>.json
-```
-
-Reflect from notes:
-
-```powershell
-codemem reflect --task "<task title>" --file task-notes.md
+codemem session error "error or failed attempt"
+codemem session status
+codemem session stop --summary "what changed and why"
+codemem session list
 ```
 
 ## Memory Format
@@ -322,18 +329,14 @@ Humans can review and edit records in normal Git workflows.
 Prefer markdown records for storage changes.
 ```
 
-Supported memory types:
+All files in `.codemem/` are local, human-readable, and Git-friendly.
 
-```text
-decision, convention, bug, fix, failed_attempt, lesson, todo, warning
-```
-
-## Reflection Quality
+## Memory Quality
 
 Good memories are concrete:
 
 - `Register CLI commands in src/cli.js because command routing is centralized there.`
-- `Review requires a pending reflection file path.`
+- `Review defaults to the latest pending reflection to avoid file-path friction.`
 - `Session stop records final outcome and commit metadata.`
 
 Weak memories are filtered where possible:
@@ -342,19 +345,29 @@ Weak memories are filtered where possible:
 - `Validated session reflection`
 - `Something happened during the session`
 
-## Doctor And Troubleshooting
+If two memories conflict, CodeMem surfaces the conflict during review instead of silently choosing one.
 
-`codemem doctor` checks:
+## Troubleshooting
 
-- Node.js version
-- Git availability
-- default agent command availability
-- `.codemem/` initialization
-- `codemem` wrapper installation
-- AGENTS bridge presence
-- whether `.codemem/bin` is on PATH
+Run:
 
-Warnings do not always block usage. CodeMem works without the default agent installed when using `--dry-run`, and it works without Git metadata outside a Git repository.
+```powershell
+codemem doctor
+```
+
+Common warnings:
+
+- `Default agent command available`: Codex is not installed or not on PATH. Dry-runs still work.
+- `.codemem/bin on PATH`: optional. Global install or `npm link` is usually better than adding repo-local bins to PATH.
+- `AGENTS.md bridge present`: setup did not create or could not replace a root `AGENTS.md`. Check `.codemem/AGENTS.bridge.md`.
+
+Run:
+
+```powershell
+codemem verify
+```
+
+to confirm diagnostics plus the dry-run workflow.
 
 ## Current Limits
 
@@ -362,7 +375,7 @@ Warnings do not always block usage. CodeMem works without the default agent inst
 - Duplicate and conflict detection use local heuristics.
 - Reflection extraction is heuristic and review-first.
 - No vector database, cloud sync, team collaboration, or external embedding service.
-- Optional AI providers can be added later, but the default path must remain fully offline.
+- Optional AI providers can be added later, but the default path remains fully offline.
 
 ## Development
 
@@ -372,8 +385,16 @@ Run tests:
 npm test
 ```
 
-The test suite covers storage, retrieval, context generation, prompt generation, session capture, reflection, review, duplicate/conflict detection, memory usefulness, AGENTS.md generation, setup, doctor, uninstall, and no-key CLI behavior.
+Check package contents:
 
+```powershell
+npm pack --dry-run
+```
 
+If Windows blocks the npm cache, use a local cache:
 
+```powershell
+npm pack --dry-run --cache .tmp-npm-cache
+```
 
+The test suite covers storage, retrieval, context generation, prompt generation, session capture, reflection, review, duplicate/conflict detection, memory usefulness, AGENTS.md generation, setup, doctor, verify, config, uninstall, packaging, and no-key CLI behavior.

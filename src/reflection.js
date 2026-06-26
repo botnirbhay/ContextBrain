@@ -275,6 +275,17 @@ export function formatPendingReview(filePath) {
   return lines.join("\n").trimEnd();
 }
 
+export function latestPendingReviewFile(root = process.cwd()) {
+  const p = paths(root);
+  if (!fs.existsSync(p.pending)) return "";
+  const files = fs.readdirSync(p.pending)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => path.join(p.pending, file))
+    .filter((filePath) => hasPendingCandidates(filePath))
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+  return files[0] || "";
+}
+
 export function approvePending(filePath, { root = process.cwd(), indices = [], reject = [], approveAll = false, rejectAll = false } = {}) {
   const pending = readJson(filePath);
   if (!Array.isArray(pending.candidates)) {
@@ -326,6 +337,15 @@ function toReviewReference(memory) {
     type: memory.type,
     file_path: memory.file_path
   };
+}
+
+function hasPendingCandidates(filePath) {
+  try {
+    const pending = readJson(filePath);
+    return Array.isArray(pending.candidates) && pending.candidates.some((candidate) => !candidate.review_status || candidate.review_status === "pending" || candidate.status === "pending");
+  } catch {
+    return false;
+  }
 }
 
 function uniqueReflectionId(p, baseId) {

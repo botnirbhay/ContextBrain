@@ -3,6 +3,27 @@
   "version": "0.1.0",
   "description": "Repo-local memory and reflection layer for coding agents.",
   "type": "module",
+  "keywords": [
+    "codex",
+    "coding-agent",
+    "memory",
+    "cli",
+    "local-first",
+    "agent-tools"
+  ],
+  "homepage": "https://github.com/botnirbhay/CodexMemory#readme",
+  "bugs": {
+    "url": "https://github.com/botnirbhay/CodexMemory/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/botnirbhay/CodexMemory.git"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "codemem": "./src/codemem.js"
   },
