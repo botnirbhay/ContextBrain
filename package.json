@@ -1,7 +1,7 @@
 {
   "name": "contextbrain",
   "version": "0.1.1",
-  "description": "Repo-local memory and reflection layer for coding agents.",
+  "description": "Local memory and reflection layer for Codex CLI.",
   "type": "module",
   "keywords": [
     "codex",

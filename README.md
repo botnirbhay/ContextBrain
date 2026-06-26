@@ -1,46 +1,36 @@
 # ContextBrain
 
-ContextBrain is a local memory and learning layer for Codex and other coding agents.
+ContextBrain is a local memory and learning layer for Codex CLI.
 
-It remembers durable project knowledge such as decisions, conventions, bug fixes, failed attempts, warnings, and lessons. On later tasks it retrieves the most relevant knowledge, builds a small context pack, launches your coding agent with that context, captures what happened, and proposes new learnings for review.
+It helps Codex remember durable project knowledge across tasks: architecture decisions, conventions, bug fixes, failed attempts, warnings, and lessons. Before a task, ContextBrain builds a small context pack for Codex. After the task, it captures what happened and proposes new learnings for human review.
 
-ContextBrain is not a chat-history logger. It stores structured, human-editable memory that helps an agent behave like it has worked in the repository before.
+ContextBrain is not a chat-history logger. It stores structured, editable, repo-local memory so Codex can behave more like the same engineer returning to the same codebase.
 
-## Quick Start
+## Install
 
-Use this flow inside the project where you want memory.
-
-### 1. Install
-
-For a packaged release:
+Install from npm:
 
 ```powershell
 npm install -g contextbrain
 ```
 
-For local development from this repository:
-
-```powershell
-cd C:\path\to\ContextBrain
-npm install
-npm link
-```
-
-Check that the command is available:
+Check the command:
 
 ```powershell
 cbr --help
 ```
 
-If you do not use global install or `npm link`, run the CLI directly:
+Requirements:
 
-```powershell
-node C:\path\to\ContextBrain\src\contextbrain.js --help
-```
+- Node.js 20 or newer
+- Git
+- Codex CLI on PATH for real agent runs
 
-### 2. Set Up A Repo
+ContextBrain itself does not require an OpenAI API key or any cloud service key. It uses local files and launches your already configured Codex CLI.
 
-Run setup once from the repository you want your coding agent to work in:
+## First-Time Setup In A Project
+
+Run this once inside the repository where Codex will work:
 
 ```powershell
 cd C:\path\to\your-project
@@ -62,15 +52,54 @@ cbr verify
   bin/
     cbr.cmd
     cbr.ps1
-    contextbrain
+    cbr
 AGENTS.md
 ```
 
-The root `AGENTS.md` is a bridge for agents that read repository instructions. If your repo already has a human-authored `AGENTS.md`, ContextBrain leaves it untouched and writes `.contextbrain/AGENTS.bridge.md` for you to merge manually.
+The root `AGENTS.md` is a bridge for Codex and other agent tools that read repository instructions. If your repo already has a human-authored `AGENTS.md`, ContextBrain leaves it untouched and writes `.contextbrain/AGENTS.bridge.md` so you can merge the snippet manually.
 
-### 3. Configure Once
+## Daily Codex Workflow
 
-ContextBrain works without API keys or cloud services. By default it launches Codex with:
+Most users only need this loop:
+
+```powershell
+cbr "implement oauth login"
+cbr review
+cbr learn
+```
+
+Use resume when you want Codex conversation continuity:
+
+```powershell
+cbr resume "add tests for oauth login"
+```
+
+Preview without launching Codex:
+
+```powershell
+cbr "inspect auth module" --dry-run
+```
+
+If `cbr` is not on PATH, use the repo-local wrapper created by setup:
+
+```powershell
+.\.contextbrain\bin\cbr.cmd "implement oauth login"
+```
+
+## What Happens When You Run `cbr "task"`
+
+ContextBrain:
+
+1. Starts a repo-local session.
+2. Searches approved memories for the task.
+3. Builds a compact Codex context pack.
+4. Builds the final Codex prompt.
+5. Launches `codex exec` by default.
+6. Captures changed files, git diff summary, command metadata, and final outcome.
+7. Reflects on the session.
+8. Writes pending learnings for review.
+
+The default config is stored in `.contextbrain/config.json`:
 
 ```json
 {
@@ -80,66 +109,39 @@ ContextBrain works without API keys or cloud services. By default it launches Co
 }
 ```
 
-To change the default agent command once per repo:
-
-```powershell
-cbr config --agent-command "codex exec --sandbox read-only"
-cbr config --resume-command "codex resume --last --include-non-interactive"
-```
-
-Show current config:
+You can inspect it with:
 
 ```powershell
 cbr config
 ```
 
-### 4. Run Tasks
-
-Start a new agent session with memory:
+For a safer read-only default, configure Codex once per repo:
 
 ```powershell
-cbr "implement oauth login"
+cbr config --agent-command "codex exec --sandbox read-only"
 ```
 
-Continue the previous Codex session with fresh cbr context:
+## Review And Learn
 
-```powershell
-cbr resume "add tests for the oauth login"
-```
-
-Preview what ContextBrain would do without launching the agent:
-
-```powershell
-cbr "inspect auth module" --dry-run
-```
-
-If `contextbrain` is not on PATH, use the repo-local wrapper created by setup:
-
-```powershell
-.\.contextbrain\bin\cbr.cmd "implement oauth login"
-```
-
-### 5. Review Learnings
-
-After a task, ContextBrain may propose durable memories. Review the latest pending file:
+After a task, ContextBrain may create pending memory candidates. Review them before they become long-lived project knowledge:
 
 ```powershell
 cbr review
 ```
 
-Approve only useful memories:
+Approve useful candidates:
 
 ```powershell
 cbr review --approve 1,3
 ```
 
-Reject noisy memories:
+Reject noisy candidates:
 
 ```powershell
 cbr review --reject 2
 ```
 
-Approve or reject everything only when you have inspected the candidates:
+Approve or reject everything only after inspecting the list:
 
 ```powershell
 cbr review --approve-all
@@ -152,56 +154,15 @@ Regenerate distilled project instructions from approved memories:
 cbr learn
 ```
 
-This updates:
+This writes:
 
 ```text
 .contextbrain/AGENTS.md
 ```
 
-## Daily Workflow
+That file becomes the durable project brain Codex can read in future sessions.
 
-Most users only need these commands:
-
-```powershell
-cbr setup
-cbr verify
-cbr "new task"
-cbr resume "follow-up task"
-cbr review
-cbr learn
-cbr status
-```
-
-Use `cbr "new task"` when you want a fresh agent session.
-
-Use `cbr resume "follow-up task"` when you want Codex conversation continuity. For Codex, ContextBrain launches `codex resume --last` and passes a fresh memory-aware prompt into that resumed session.
-
-## How It Works
-
-When you run:
-
-```powershell
-cbr "your task"
-```
-
-ContextBrain:
-
-1. Starts a repo-local session.
-2. Searches approved memories for the task.
-3. Builds a small context pack.
-4. Builds the final agent prompt.
-5. Launches the configured agent command.
-6. Captures changed files, git diff summary, command metadata, and outcome.
-7. Reflects on the session.
-8. Writes pending learnings for human review.
-
-The default integration is a wrapper command instead of replacing `codex`. ContextBrain does not shadow real agent CLIs because that can be surprising and hard to debug. The safe production entry point is:
-
-```powershell
-cbr "your task"
-```
-
-## Command Reference
+## Useful Commands
 
 ### Setup And Health
 
@@ -213,13 +174,13 @@ cbr config
 cbr uninstall
 ```
 
-- `setup`: initializes `.contextbrain/`, config, wrappers, and AGENTS bridge.
+- `setup`: initializes `.contextbrain/`, config, wrappers, and the AGENTS bridge.
 - `verify`: runs diagnostics plus a dry-run workflow.
-- `doctor`: checks Node, Git, default agent command, config, wrappers, and AGENTS files.
+- `doctor`: checks Node, Git, Codex, config, wrappers, and AGENTS files.
 - `config`: shows or updates `.contextbrain/config.json`.
 - `uninstall`: removes generated wrappers and generated root `AGENTS.md`; memory data remains.
 
-### Agent Workflow
+### Codex Workflow
 
 ```powershell
 cbr "task"
@@ -230,13 +191,13 @@ cbr continue
 cbr status
 ```
 
-- `cbr "task"`: shorthand for a new memory-aware agent run.
-- `run` / `agent`: explicit form of the same workflow.
-- `resume`: resumes the last Codex session using the configured resume command.
-- `continue`: continues the last cbr session record without Codex resume semantics.
+- `cbr "task"`: shorthand for a new memory-aware Codex run.
+- `run` / `agent`: explicit forms of the same workflow.
+- `resume`: resumes the last Codex conversation using `codex resume --last` by default.
+- `continue`: continues the last ContextBrain session record without Codex resume semantics.
 - `status`: shows the latest session, prompt, context pack, memories used, and files touched.
 
-### Context And Prompt Preview
+### Context Preview
 
 ```powershell
 cbr context "task"
@@ -244,26 +205,9 @@ cbr prompt "task"
 cbr inject "task"
 ```
 
-- `context`: shows the selected memories and why they were selected.
-- `prompt`: shows the exact prompt ContextBrain would send to the agent.
-- `inject`: prints a compact memory block for another tool or agent.
-
-### Memory Review
-
-```powershell
-cbr review
-cbr review --approve 1,3
-cbr review --reject 2
-cbr review --approve-all
-cbr review --reject-all
-cbr learn
-```
-
-You can also review an explicit pending file:
-
-```powershell
-cbr review .contextbrain\reflections\pending\<pending-file>.json
-```
+- `context`: shows selected memories and why they were selected.
+- `prompt`: shows the exact prompt ContextBrain would send to Codex.
+- `inject`: prints a compact memory block for manual use.
 
 ### Manual Memory And Reflection
 
@@ -283,7 +227,7 @@ decision, convention, bug, fix, failed_attempt, lesson, todo, warning
 
 ### Manual Sessions
 
-These are useful when another tool or agent drives the coding work:
+Manual sessions are useful if Codex is not launched through `cbr`, but you still want structured capture:
 
 ```powershell
 cbr session start --task "task title" --request "full request"
@@ -347,6 +291,12 @@ Weak memories are filtered where possible:
 
 If two memories conflict, ContextBrain surfaces the conflict during review instead of silently choosing one.
 
+## Codex-First Scope
+
+ContextBrain v1 is intentionally Codex-first. The default commands are `codex exec` and `codex resume --last`, and the README focuses on that workflow.
+
+Advanced users can still point ContextBrain at another command with `cbr config --agent-command "..."`, but first-class support and documentation for other agents is intentionally out of scope for this release.
+
 ## Troubleshooting
 
 Run:
@@ -358,7 +308,7 @@ cbr doctor
 Common warnings:
 
 - `Default agent command available`: Codex is not installed or not on PATH. Dry-runs still work.
-- `.contextbrain/bin on PATH`: optional. Global install or `npm link` is usually better than adding repo-local bins to PATH.
+- `.contextbrain/bin on PATH`: optional. Global npm install is usually better than adding repo-local bins to PATH.
 - `AGENTS.md bridge present`: setup did not create or could not replace a root `AGENTS.md`. Check `.contextbrain/AGENTS.bridge.md`.
 
 Run:
@@ -375,7 +325,7 @@ to confirm diagnostics plus the dry-run workflow.
 - Duplicate and conflict detection use local heuristics.
 - Reflection extraction is heuristic and review-first.
 - No vector database, cloud sync, team collaboration, or external embedding service.
-- Optional AI providers can be added later, but the default path remains fully offline.
+- Codex is the supported default agent for v1.
 
 ## Development
 
@@ -398,5 +348,3 @@ npm pack --dry-run --cache .tmp-npm-cache
 ```
 
 The test suite covers storage, retrieval, context generation, prompt generation, session capture, reflection, review, duplicate/conflict detection, memory usefulness, AGENTS.md generation, setup, doctor, verify, config, uninstall, packaging, and no-key CLI behavior.
-
-
